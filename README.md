@@ -1,4 +1,4 @@
-# MQTT_Optimized_ESP32_Power
+# MQTT Optimized ESP32 Power
 
 
 
