@@ -33,7 +33,7 @@ bool mqttConnected = false;
 bool dataPublished = false;
 
 // Deep Sleep Duration (in microseconds)
-#define DEEP_SLEEP_DURATION 30e6 // 30 seconds
+#define DEEP_SLEEP_DURATION 30e6 // 30 sed
 
 // Function to connect to Wi-Fi
 void connectToWifi() {
