@@ -7,8 +7,8 @@
 #include <WebServer.h>
 
 // Wi-Fi Credentials
-#define WIFI_SSID "MH_EXT"
-#define WIFI_PASSWORD "MH19283746"
+#define WIFI_SSID "**"
+#define WIFI_PASSWORD "**"
 
 // MQTT Broker
 #define MQTT_SERVER "broker.hivemq.com"
@@ -33,7 +33,7 @@ bool mqttConnected = false;
 bool dataPublished = false;
 
 // Deep Sleep Duration (in microseconds)
-#define DEEP_SLEEP_DURATION 60e7 // 10 Minutes
+#define DEEP_SLEEP_DURATION 30e6 // 30 seconds
 
 // Function to connect to Wi-Fi
 void connectToWifi() {
