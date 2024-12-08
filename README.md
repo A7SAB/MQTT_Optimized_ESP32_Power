@@ -80,7 +80,6 @@ Here are some features we're working on:
 - **Database Integration**: Store sensor readings and user data persistently.
 - **Full Web Interface**: Add user-friendly features like login pages and dashboards.
 - **Mobile Compatibility**: Responsive design for mobile devices.
-- **Advanced Analytics**: Visualize sensor data trends in real-time.
-
+- ....
 ---
 
