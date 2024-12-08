@@ -1,0 +1,7 @@
+Flask==2.2.5
+Flask-MQTT==1.0.9
+Flask-SocketIO==5.3.4
+Flask-Bootstrap==3.3.7.1
+eventlet==0.33.3
+sqlite3-binary==3.39.3
+python-socketio==5.8.0
