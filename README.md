@@ -18,7 +18,7 @@ This project demonstrates an MQTT-based system using an ESP32 microcontroller an
 
 - **`Capstone_FieldSensor`**: for the ESP code
 - **`Flask_Mqtt_Version_1`**: the file for the mqtt and web server
-- **`requirements.txt`**: Dependencies required to run the project.
+- **`Flask_Mqtt_Version_1/requirements.txt`**: Dependencies required to run the project.
 
 ---
 
