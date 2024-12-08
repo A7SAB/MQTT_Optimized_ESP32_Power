@@ -3,6 +3,10 @@
 		{
 			"name": "Capstone_FieldSensor",
 			"path": ".."
+		},
+		{
+			"name": "Capstone_FieldSensor",
+			"path": "Capstone_FieldSensor"
 		}
 	],
 	"settings": {}
