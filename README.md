@@ -57,7 +57,7 @@ pip install -r requirements.txt
 #### Step 3: Start the Server
 Run the application:
 ```bash
-python main.py
+python app.py
 ```
 
 Access the application at [http://0.0.0.0:5000](http://0.0.0.0:5000).
