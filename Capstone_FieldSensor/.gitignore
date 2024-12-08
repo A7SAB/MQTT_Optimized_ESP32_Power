@@ -3,4 +3,4 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-.vscode/Capstone_FieldSensor/src/MQTT_Optimized_ESP32_Power.code-workspace
+/Capstone_FieldSensor/src/MQTT_Optimized_ESP32_Power.code-workspace
