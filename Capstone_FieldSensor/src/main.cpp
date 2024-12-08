@@ -7,7 +7,7 @@
 #include <WebServer.h>
 
 // Wi-Fi Credentials
-#define WIFI_SSID "**"
+#define WIFI_SSID "****"
 #define WIFI_PASSWORD "**"
 
 // MQTT Broker
