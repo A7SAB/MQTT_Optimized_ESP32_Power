@@ -12,8 +12,8 @@
 
 
 // WiFi credentials
-const char* ssid = "MH_EXT";
-const char* password = "MH19283746";
+const char* ssid = "***";
+const char* password = "***";
 
 // MQTT Broker settings
 const char* mqtt_server = "broker.hivemq.com";
