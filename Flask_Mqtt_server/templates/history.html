@@ -1,0 +1,305 @@
+{# templates/dashboard.html #}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="main-content">
+    <header class="main-header">
+        <h1 class="header-title">Dashboard Overview</h1>
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-primary">
+                <i class="fas fa-plus mr-2"></i>
+                Add Sensor
+            </button>
+        </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="dashboard-stats">
+        <div class="card">
+            <div class="card-body">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Active Sensors</span>
+                    <i class="fas fa-satellite-dish"></i>
+                </div>
+                <div class="stat-card-value">{{ sensors|length }}</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Average Temperature</span>
+                    <i class="fas fa-temperature-high"></i>
+                </div>
+                <div class="stat-card-value" id="avg-temp">--°C</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="stat-card-header">
+                    <span class="stat-card-title">Average Humidity</span>
+                    <i class="fas fa-tint"></i>
+                </div>
+                <div class="stat-card-value" id="avg-humid">--%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sensors Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Registered Sensors</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table" id="sensors-table">
+                    <thead>
+                        <tr>
+                            <th>Sensor ID</th>
+                            <th>Temperature</th>
+                            <th>Humidity</th>
+                            <th>Last Update</th>
+                            <th>Sleep Time (s)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sensor in sensors %}
+                        <tr data-sensor-id="{{ sensor.device_id }}">
+                            <td>{{ sensor.device_id }}</td>
+                            <td class="temp-value">{{ sensor.temperature if sensor.temperature else 'N/A' }}{% if sensor.temperature %}°C{% endif %}</td>
+                            <td class="humid-value">{{ sensor.humidity if sensor.humidity else 'N/A' }}{% if sensor.humidity %}%{% endif %}</td>
+                            <td class="last-update">{{ sensor.last_update }}</td>
+                            <td>
+                                <input type="number" class="form-control sleep-time" value="{{ sensor.sleep_time }}" min="1">
+                            </td>
+                            <td>
+                                <button class="btn btn-primary btn-sm mr-2" onclick="updateSleepTime('{{ sensor.device_id }}', this)">Update</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteSensor('{{ sensor.device_id }}')">Remove</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Readings History -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Sensor Readings History</h5>
+            <div class="d-flex align-items-center">
+                <select class="form-control" id="sensorSelect">
+                    <option value="all">All Sensors</option>
+                    {% for sensor in sensors %}
+                    <option value="{{ sensor.device_id }}">{{ sensor.device_id }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-danger ml-3" onclick="resetDatabase()">Reset Database</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Sensor ID</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="readings-table">
+                    {% for reading in latest_readings %}
+                    <tr>
+                        <td>{{ reading.device_id }}</td>
+                        <td>{{ reading.sensor_type }}</td>
+                        <td>{{ reading.value }}{% if reading.sensor_type == 'temperature' %}°C{% elif reading.sensor_type == 'humidity' %}%{% endif %}</td>
+                        <td>{{ reading.timestamp }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+
+    window.deleteSensor = function(deviceId) {
+        if (confirm('Are you sure you want to remove this sensor?')) {
+            fetch('/api/delete-sensor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    device_id: deviceId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    throw new Error(data.message || 'Delete failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting sensor: ' + error.message);
+            });
+        }
+    };
+
+    window.resetDatabase = function() {
+        if (confirm('Are you sure you want to reset the database? This action cannot be undone.')) {
+            fetch('/api/reset-database', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Database reset successfully');
+                    location.reload();
+                } else {
+                    throw new Error(data.message || 'Reset failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error resetting database: ' + error.message);
+            });
+        }
+    };
+
+    // Initialize everything when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Socket.IO connection
+        const socket = io({
+            transports: ['websocket'],
+            reconnection: true,
+            reconnectionAttempts: 5
+        });
+
+        function updateAverages() {
+            const rows = document.querySelectorAll('#sensors-table tbody tr');
+            let tempSum = 0;
+            let tempCount = 0;
+            let humidSum = 0;
+            let humidCount = 0;
+
+            rows.forEach(row => {
+                const tempText = row.querySelector('.temp-value').textContent;
+                const humidText = row.querySelector('.humid-value').textContent;
+                
+                if (tempText !== 'N/A') {
+                    const tempValue = parseFloat(tempText);
+                    if (!isNaN(tempValue)) {
+                        tempSum += tempValue;
+                        tempCount++;
+                    }
+                }
+                if (humidText !== 'N/A') {
+                    const humidValue = parseFloat(humidText);
+                    if (!isNaN(humidValue)) {
+                        humidSum += humidValue;
+                        humidCount++;
+                    }
+                }
+            });
+
+            const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : '--';
+            const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : '--';
+            
+            document.getElementById('avg-temp').textContent = `${avgTemp}°C`;
+            document.getElementById('avg-humid').textContent = `${avgHumid}%`;
+        }
+
+        // Initialize averages on page load
+        updateAverages();
+
+        // Handle incoming MQTT messages
+        socket.on('mqtt_message', function(data) {
+            console.log('Received message:', data);
+            
+            const sensorRow = document.querySelector(`tr[data-sensor-id="${data.device_id}"]`);
+            
+            if (!sensorRow) {
+                console.log('No matching sensor row found, reloading...');
+                location.reload();
+                return;
+            }
+
+            // Update sensor readings
+            if (data.topic.includes('Temperature')) {
+                const tempCell = sensorRow.querySelector('.temp-value');
+                if (tempCell) {
+                    tempCell.textContent = `${data.value}°C`;
+                }
+            } else if (data.topic.includes('Humidity')) {
+                const humidCell = sensorRow.querySelector('.humid-value');
+                if (humidCell) {
+                    humidCell.textContent = `${data.value}%`;
+                }
+            }
+            
+            // Update last seen timestamp
+            const timestampCell = sensorRow.querySelector('.last-update');
+            if (timestampCell) {
+                timestampCell.textContent = data.timestamp;
+            }
+
+            // Update averages
+            updateAverages();
+            
+            // Add new reading to history table
+            const tbody = document.getElementById('readings-table');
+            const selectedSensor = document.getElementById('sensorSelect').value;
+            
+            if (selectedSensor === 'all' || selectedSensor === data.device_id) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${data.device_id}</td>
+                    <td>${data.topic.split('/')[1]}</td>
+                    <td>${data.value}${data.topic.includes('Temperature') ? '°C' : '%'}</td>
+                    <td>${data.timestamp}</td>
+                `;
+                tbody.insertBefore(row, tbody.firstChild);
+                
+                // Keep only last 10 rows
+                while (tbody.children.length > 10) {
+                    tbody.removeChild(tbody.lastChild);
+                }
+            }
+        });
+
+        // Add sensor select change handler
+        document.getElementById('sensorSelect').addEventListener('change', function() {
+            const selectedSensor = this.value;
+            fetch(`/api/get-readings?sensor=${selectedSensor}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('readings-table');
+                    tbody.innerHTML = data.readings.map(reading => `
+                        <tr>
+                            <td>${reading.device_id}</td>
+                            <td>${reading.sensor_type}</td>
+                            <td>${reading.value}${reading.sensor_type === 'temperature' ? '°C' : '%'}</td>
+                            <td>${reading.timestamp}</td>
+                        </tr>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error filtering readings: ' + error.message);
+                });
+        });
+    });
+</script></script>
+{% endblock %}
+{% endblock %}

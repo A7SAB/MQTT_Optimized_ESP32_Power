@@ -2,138 +2,284 @@
 #include <WiFi.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-#include <AsyncMqttClient.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <Preferences.h>
 #include <ArduinoOTA.h>
+#include "FS.h"
 #include <WebServer.h>
+#include <DNSServer.h>
 
-// Wi-Fi Credentials
-#define WIFI_SSID "****"
-#define WIFI_PASSWORD "**"
 
-// MQTT Broker
-#define MQTT_SERVER "broker.hivemq.com"
-#define MQTT_PORT 1883
-#define MQTT_PUB_TEMP "mynode/Temperature"
-#define MQTT_PUB_HUM "mynode/Humidity"
+// WiFi credentials
+const char* ssid = "MH_EXT";
+const char* password = "MH19283746";
 
-// DHT Sensor Configuration
+// MQTT Broker settings
+const char* mqtt_server = "broker.hivemq.com";
+const int mqtt_port = 1883;
+
+// MQTT Topics
+const char* MQTT_TOPIC_TEMP = "mynode/Temperature";
+const char* MQTT_TOPIC_HUM = "mynode/Humidity";
+const char* MQTT_TOPIC_AUTH = "mynode/auth";
+const char* MQTT_TOPIC_ACK = "mynode/ack";
+const char* MQTT_TOPIC_SLEEP = "mynode/default/config/sleep";
+
+// DHT Sensor settings
 #define DHTPIN 2
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-// MQTT Client
-AsyncMqttClient mqttClient;
+// States
+enum State {
+    STATE_INIT,
+    STATE_AUTH,
+    STATE_GET_SLEEP,
+    STATE_PUBLISH,
+    STATE_WAIT_ACK,
+    STATE_SLEEP
+};
 
-// State variables for sequential tasks
-enum TaskState { WIFI_TASK, MQTT_TASK, PUBLISH_TASK, FINISH_TASK };
-TaskState currentTask = WIFI_TASK;
+// Global variables
+String deviceId;
+uint32_t sleepDuration = 30;  // Default sleep duration in seconds
+uint32_t lastMessageTime = 0;
+uint32_t startTime = 0;
+State currentState = STATE_INIT;
+bool isAuthenticated = false;
+bool dataAcknowledged = false;
+bool dataSent = false;
+bool sleepTimeReceived = false;
 
-bool wifiConnected = false;
-bool mqttConnected = false;
-bool dataPublished = false;
+// Initialize objects
+WiFiClient espClient;
+PubSubClient mqtt(espClient);
+Preferences preferences;
 
-// Deep Sleep Duration (in microseconds)
-#define DEEP_SLEEP_DURATION 30e6 // 30 sed
-
-// Function to connect to Wi-Fi
-void connectToWifi() {
-  Serial.println("Connecting to Wi-Fi...");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWi-Fi connected!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-  wifiConnected = true;
+void setState(State newState) {
+    currentState = newState;
+    lastMessageTime = millis();
+    Serial.printf("[STATE] Changed to state: %d\n", newState);
 }
 
-// Function to connect to MQTT server
-void connectToMqtt() {
-  Serial.println("Connecting to MQTT...");
-  mqttClient.onConnect([](bool sessionPresent) {
-    Serial.println("Connected to MQTT.");
-    mqttConnected = true;
-  });
-  mqttClient.onDisconnect([](AsyncMqttClientDisconnectReason reason) {
-    Serial.println("Disconnected from MQTT.");
-    mqttConnected = false;
-  });
-  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
-  mqttClient.connect();
-
-  while (!mqttConnected) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nMQTT connection established.");
+void connectWiFi() {
+    Serial.printf("[WIFI] Connecting to %s\n", ssid);
+    WiFi.begin(ssid, password);
+    
+    uint32_t startAttempt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 30000) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println();
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("[WIFI] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+        Serial.println("[WIFI] Connection failed! Going to sleep.");
+        ESP.deepSleep(60 * 1000000ULL);
+    }
 }
 
-// Function to publish data to MQTT
-void publishData() {
-  float temperature = dht.readTemperature();
-  float humidity = dht.readHumidity();
+void requestSleepTime() {
+    StaticJsonDocument<200> doc;
+    doc["device_id"] = deviceId;
+    doc["action"] = "get_sleep_time";
 
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return;
-  }
-
-  uint16_t packetIdTemp = mqttClient.publish(MQTT_PUB_TEMP, 1, true, String(temperature).c_str());
-  uint16_t packetIdHum = mqttClient.publish(MQTT_PUB_HUM, 1, true, String(humidity).c_str());
-
-  Serial.printf("Temperature: %.2f°C, Humidity: %.2f%%\n", temperature, humidity);
-  Serial.printf("Published Temp Packet ID: %d, Hum Packet ID: %d\n", packetIdTemp, packetIdHum);
-
-  // Simulate waiting for acknowledgment (Optional for AsyncMqttClient)
-  delay(1000); // Ensure data is sent
-  dataPublished = true;
+    char jsonBuffer[200];
+    serializeJson(doc, jsonBuffer);
+    
+    if (mqtt.publish(MQTT_TOPIC_SLEEP, jsonBuffer)) {
+        Serial.println("[SLEEP] Sleep time request sent");
+        lastMessageTime = millis();
+    } else {
+        Serial.println("[ERROR] Failed to request sleep time");
+    }
 }
 
-// Function to execute the current task
-void runTask() {
-  switch (currentTask) {
-    case WIFI_TASK:
-      connectToWifi();
-      if (wifiConnected) {
-        currentTask = MQTT_TASK;
-      }
-      break;
+void handleCallback(char* topic, byte* payload, unsigned int length) {
+    Serial.printf("[MQTT] Message received on topic: %s\n", topic);
+    
+    char message[256];
+    memcpy(message, payload, min(length, sizeof(message) - 1));
+    message[min(length, sizeof(message) - 1)] = '\0';
+    Serial.printf("[MQTT] Message content: %s\n", message);
+    
+    StaticJsonDocument<512> doc;
+    DeserializationError error = deserializeJson(doc, message);
+    if (error) {
+        Serial.printf("[ERROR] JSON parse failed: %s\n", error.c_str());
+        return;
+    }
 
-    case MQTT_TASK:
-      if (wifiConnected) {
-        connectToMqtt();
-        if (mqttConnected) {
-          currentTask = PUBLISH_TASK;
+    String topicStr = String(topic);
+    
+    // Handle authentication response
+    if (topicStr == MQTT_TOPIC_AUTH) {
+        if (doc.containsKey("status") && doc["status"] == "approved") {
+            Serial.println("[AUTH] Device authenticated!");
+            isAuthenticated = true;
+            setState(STATE_GET_SLEEP);
         }
-      }
-      break;
-
-    case PUBLISH_TASK:
-      if (mqttConnected) {
-        publishData();
-        if (dataPublished) {
-          currentTask = FINISH_TASK;
+    }
+    // Handle sleep time response
+    else if (topicStr == MQTT_TOPIC_SLEEP) {
+        if (doc.containsKey("sleep_time")) {
+            uint32_t newSleepTime = doc["sleep_time"];
+            if (newSleepTime > 0) {
+                sleepDuration = newSleepTime;
+                preferences.putUInt("sleep", sleepDuration);
+                Serial.printf("[SLEEP] Updated sleep time to: %d seconds\n", sleepDuration);
+                sleepTimeReceived = true;
+                setState(STATE_PUBLISH);
+            }
         }
-      }
-      break;
+    }
+    // Handle data acknowledgment
+    else if (topicStr == MQTT_TOPIC_ACK) {
+        if (doc.containsKey("status") && doc["status"] == "received") {
+            Serial.println("[ACK] Data acknowledged by server");
+            dataAcknowledged = true;
+            setState(STATE_SLEEP);
+        }
+    }
+}
 
-    case FINISH_TASK:
-      Serial.println("All tasks finished. Entering deep sleep...");
-      esp_deep_sleep(DEEP_SLEEP_DURATION);
-      break;
-  }
+void setupMQTT() {
+    mqtt.setServer(mqtt_server, mqtt_port);
+    mqtt.setCallback(handleCallback);
+    
+    deviceId = "ESP32_" + String((uint32_t)ESP.getEfuseMac(), HEX);
+    Serial.printf("[MQTT] Device ID: %s\n", deviceId.c_str());
+    
+    Serial.println("[MQTT] Connecting...");
+    if (mqtt.connect(deviceId.c_str())) {
+        Serial.println("[MQTT] Connected!");
+        mqtt.subscribe(MQTT_TOPIC_AUTH);
+        mqtt.subscribe(MQTT_TOPIC_ACK);
+        mqtt.subscribe(MQTT_TOPIC_SLEEP);
+    } else {
+        Serial.printf("[MQTT] Connection failed, rc=%d\n", mqtt.state());
+    }
+}
+
+void requestAuthentication() {
+    StaticJsonDocument<200> doc;
+    doc["device_id"] = deviceId;
+    doc["action"] = "auth_request";
+
+    char jsonBuffer[200];
+    serializeJson(doc, jsonBuffer);
+    
+    if (mqtt.publish(MQTT_TOPIC_AUTH, jsonBuffer)) {
+        Serial.println("[AUTH] Authentication request sent");
+        lastMessageTime = millis();
+    }
+}
+
+void publishSensorData() {
+    if (dataSent) return;
+
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    
+    if (isnan(temperature) || isnan(humidity)) {
+        Serial.println("[ERROR] Failed to read DHT sensor!");
+        return;
+    }
+
+    StaticJsonDocument<200> doc;
+    doc["device_id"] = deviceId;
+    doc["temperature"] = temperature;
+    doc["humidity"] = humidity;
+
+    char jsonBuffer[200];
+    serializeJson(doc, jsonBuffer);
+    
+    if (mqtt.publish(MQTT_TOPIC_TEMP, jsonBuffer) && 
+        mqtt.publish(MQTT_TOPIC_HUM, jsonBuffer)) {
+        Serial.printf("[DATA] Published - T: %.1f°C, H: %.1f%%\n", temperature, humidity);
+        dataSent = true;
+        setState(STATE_WAIT_ACK);
+    } else {
+        Serial.println("[ERROR] Failed to publish data");
+    }
 }
 
 void setup() {
-  Serial.begin(115200);
-  dht.begin();
-
-  // Initialize MQTT client
-  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+    Serial.begin(115200);
+    delay(100);
+    Serial.println("\n[INIT] Starting ESP32 Sensor Node");
+    
+    startTime = millis();
+    dht.begin();
+    preferences.begin("sensor", false);
+    
+    // Load saved sleep duration
+    sleepDuration = preferences.getUInt("sleep", 30);
+    Serial.printf("[INIT] Loaded sleep duration: %d seconds\n", sleepDuration);
+    
+    connectWiFi();
+    setupMQTT();
+    setState(STATE_AUTH);
 }
 
 void loop() {
-  runTask();
+    mqtt.loop();
+
+    // Check for timeout (2 minutes total runtime)
+    if (millis() - startTime > 120000) {
+        Serial.println("[TIMEOUT] Total runtime exceeded. Going to sleep.");
+        ESP.deepSleep(sleepDuration * 1000000ULL);
+        return;
+    }
+
+    // Connection check
+    if (WiFi.status() != WL_CONNECTED || !mqtt.connected()) {
+        Serial.println("[ERROR] Connection lost. Going to sleep.");
+        ESP.deepSleep(sleepDuration * 1000000ULL);
+        return;
+    }
+
+    // State machine
+    switch (currentState) {
+        case STATE_AUTH:
+            if (!isAuthenticated && millis() - lastMessageTime > 5000) {
+                requestAuthentication();
+            }
+            break;
+            
+        case STATE_GET_SLEEP:
+            if (!sleepTimeReceived && millis() - lastMessageTime > 5000) {
+                requestSleepTime();
+            }
+            // Timeout after 30 seconds and proceed with current sleep time
+            if (!sleepTimeReceived && millis() - lastMessageTime > 30000) {
+                Serial.println("[SLEEP] No sleep time received, using current value");
+                setState(STATE_PUBLISH);
+            }
+            break;
+            
+        case STATE_PUBLISH:
+            if (!dataSent) {
+                publishSensorData();
+            }
+            break;
+            
+        case STATE_WAIT_ACK:
+            if (!dataAcknowledged && millis() - lastMessageTime > 10000) {
+                Serial.println("[TIMEOUT] No acknowledgment received. Going to sleep.");
+                ESP.deepSleep(sleepDuration * 1000000ULL);
+            }
+            break;
+            
+        case STATE_SLEEP:
+            Serial.printf("[SUCCESS] Complete cycle finished. Sleeping for %d seconds...\n", sleepDuration);
+            ESP.deepSleep(sleepDuration * 1000000ULL);
+            break;
+            
+        default:
+            break;
+    }
 }

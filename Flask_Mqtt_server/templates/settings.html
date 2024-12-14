@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings - Sensor Network{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <header class="main-header">
+        <h1 class="header-title">System Settings</h1>
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-primary" onclick="saveSettings()">
+                <i class="fas fa-save mr-2"></i>
+                Save Changes
+            </button>
+        </div>
+    </header>
+
+    <div class="row">
+        <div class="col-md-6">
+            <!-- Alert Settings -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>Alert Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form id="settingsForm">
+                        <div class="form-group mb-3">
+                            <label>Temperature Alert Threshold (°C)</label>
+                            <input type="number" class="form-control" name="alert_threshold_temp" 
+                                   value="{{ settings.alert_threshold_temp }}" step="0.1">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Humidity Alert Threshold (%)</label>
+                            <input type="number" class="form-control" name="alert_threshold_humid" 
+                                   value="{{ settings.alert_threshold_humid }}" step="1">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Notification Email</label>
+                            <input type="email" class="form-control" name="notification_email" 
+                                   value="{{ settings.notification_email }}">
+                        </div>
+                        <div class="form-group mb-3">
+                            <label>Data Retention Period (days)</label>
+                            <input type="number" class="form-control" name="data_retention_days" 
+                                   value="{{ settings.data_retention_days }}" min="1">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <!-- System Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>System Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted">Version</label>
+                        <p class="mb-0">1.0.0</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted">Last Backup</label>
+                        <p class="mb-0">Never</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted">System Status</label>
+                        <p class="mb-0 text-success">
+                            <i class="fas fa-circle mr-2"></i>
+                            Operational
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>Maintenance</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-outline-primary mb-2 w-100" onclick="backupData()">
+                        <i class="fas fa-database mr-2"></i>
+                        Backup Data
+                    </button>
+                    <button class="btn btn-outline-warning mb-2 w-100" onclick="clearCache()">
+                        <i class="fas fa-broom mr-2"></i>
+                        Clear Cache
+                    </button>
+                    <button class="btn btn-outline-danger w-100" onclick="resetSystem()">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Reset System
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    function saveSettings() {
+        const form = document.getElementById('settingsForm');
+        const formData = new FormData(form);
+        
+        fetch('/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Settings saved successfully');
+            } else {
+                alert('Error saving settings');
+            }
+        });
+    }
+
+    function backupData() {
+        alert('Backup started...');
+    }
+
+    function clearCache() {
+        if (confirm('Are you sure you want to clear the cache?')) {
+            alert('Cache cleared');
+        }
+    }
+
+    function resetSystem() {
+        if (confirm('Are you sure you want to reset the system? This action cannot be undone.')) {
+            alert('System reset initiated');
+        }
+    }
+</script>
+{% endblock %}

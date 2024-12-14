@@ -1,0 +1,157 @@
+{# templates/analytics.html #}
+{% extends 'base.html' %}
+
+{% block title %}Analytics - Sensor Network{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <header class="main-header">
+        <h1 class="header-title">Analytics Dashboard</h1>
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-primary" onclick="exportData()">
+                <i class="fas fa-download mr-2"></i>
+                Export Data
+            </button>
+        </div>
+    </header>
+
+    <!-- Analytics Overview -->
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-title">24h Temperature Range</span>
+                <i class="fas fa-temperature-high"></i>
+            </div>
+            <div class="stat-card-value">
+                {{ analytics.temp_range.min }}°C - {{ analytics.temp_range.max }}°C
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-title">24h Humidity Range</span>
+                <i class="fas fa-tint"></i>
+            </div>
+            <div class="stat-card-value">
+                {{ analytics.humid_range.min }}% - {{ analytics.humid_range.max }}%
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-card-title">Readings (24h)</span>
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <div class="stat-card-value">{{ analytics.readings_24h }}</div>
+        </div>
+    </div>
+
+    <!-- Temperature Chart -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Temperature Trends</h5>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary active">24h</button>
+                <button class="btn btn-outline-primary">7d</button>
+                <button class="btn btn-outline-primary">30d</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <canvas id="tempChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- Humidity Chart -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Humidity Trends</h5>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary active">24h</button>
+                <button class="btn btn-outline-primary">7d</button>
+                <button class="btn btn-outline-primary">30d</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <canvas id="humidChart" height="300"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Prepare data for charts
+    const readings = {{ readings|tojson }};
+    const tempReadings = readings.filter(r => r.sensor_type === 'temperature');
+    const humidReadings = readings.filter(r => r.sensor_type === 'humidity');
+
+    // Temperature Chart
+    new Chart(document.getElementById('tempChart'), {
+        type: 'line',
+        data: {
+            labels: tempReadings.map(r => new Date(r.timestamp).toLocaleTimeString()),
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: tempReadings.map(r => r.value),
+                borderColor: '#ef4444',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+    // Humidity Chart
+    new Chart(document.getElementById('humidChart'), {
+        type: 'line',
+        data: {
+            labels: humidReadings.map(r => new Date(r.timestamp).toLocaleTimeString()),
+            datasets: [{
+                label: 'Humidity (%)',
+                data: humidReadings.map(r => r.value),
+                borderColor: '#3b82f6',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            }
+        }
+    });
+
+    function exportData() {
+        const data = readings;
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sensor_data.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+{% endblock %}

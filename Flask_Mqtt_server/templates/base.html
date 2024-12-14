@@ -1,0 +1,295 @@
+{# templates/base.html #}
+{% extends 'bootstrap/base.html' %}
+
+{% block styles %}
+{{ super() }}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+    :root {
+        --primary-color: #6366f1;
+        --primary-hover: #4f46e5;
+        --danger-color: #ef4444;
+        --danger-hover: #dc2626;
+        --sidebar-width: 250px;
+        --header-height: 60px;
+        --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+
+    body {
+        background: var(--bg-gradient);
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #1e293b;
+        padding-left: var(--sidebar-width);
+        margin: 0;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: var(--sidebar-width);
+        background: white;
+        border-right: 1px solid #e2e8f0;
+        padding: 1rem;
+        z-index: 1030;
+    }
+
+    .sidebar-header {
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .sidebar-brand {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .sidebar .nav-item {
+        margin-bottom: 0.5rem;
+    }
+
+    .sidebar .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        color: #64748b;
+        text-decoration: none;
+        border-radius: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .sidebar .nav-link:hover,
+    .sidebar .nav-link.active {
+        background: #f1f5f9;
+        color: var(--primary-color);
+    }
+
+    /* Main Content */
+    .main-content {
+        padding: calc(var(--header-height) + 2rem) 2rem 2rem;
+    }
+
+    /* Header */
+    .main-header {
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: var(--sidebar-width);
+        height: var(--header-height);
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 1020;
+    }
+
+    .header-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0;
+    }
+
+    /* Cards */
+    .card {
+        background: white;
+        border: none;
+        border-radius: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 1.5rem;
+        border-radius: 1rem 1rem 0 0 !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Tables */
+    .table {
+        margin: 0;
+    }
+
+    .table thead th {
+        border-top: none;
+        border-bottom: 2px solid rgba(0, 0, 0, 0.08);
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        padding: 1rem;
+    }
+
+    .table td {
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    /* Buttons */
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        border: none;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        border: none;
+    }
+
+    .btn-danger:hover {
+        background: var(--danger-hover);
+        transform: translateY(-1px);
+    }
+
+    /* Forms */
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        padding: 0.5rem 1rem;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        box-shadow: 0 0 0 2px var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    /* Stats Grid */
+    .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Custom classes */
+    .temp-value {
+        color: #ef4444;
+        font-weight: 600;
+    }
+
+    .humid-value {
+        color: #3b82f6;
+        font-weight: 600;
+    }
+
+    .last-update {
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        body {
+            padding-left: 0;
+        }
+
+        .sidebar {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.show {
+            transform: translateX(0);
+        }
+
+        .main-header {
+            left: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="/" class="sidebar-brand">
+                <i class="fas fa-microchip"></i>
+                SensorNet
+            </a>
+        </div>
+        <nav class="nav flex-column">
+            <div class="nav-item">
+                <a href="/" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    Dashboard
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/analytics" class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">
+                    <i class="fas fa-chart-line"></i>
+                    Analytics
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/settings" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">
+                    <i class="fas fa-cog"></i>
+                    Settings
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="/history" class="nav-link {% if request.endpoint == 'history' %}active{% endif %}">
+                    <i class="fas fa-history"></i>
+                    History
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Page Content -->
+    {% block content %}{% endblock %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('show');
+    }
+</script>
+{% endblock %}
