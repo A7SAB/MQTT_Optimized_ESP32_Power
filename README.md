@@ -62,6 +62,9 @@ python app.py
 
 Access the application at [http://0.0.0.0:5000](http://0.0.0.0:5000).
 
+Username: admin
+Password: admin123
+
 ---
 
 ## **Hardware Requirements**
@@ -80,6 +83,7 @@ Here are some features we're working on:
 - **Database Integration**: Store sensor readings and user data persistently.
 - **Full Web Interface**: Add user-friendly features like login pages and dashboards.
 - **Mobile Compatibility**: Responsive design for mobile devices.
-- ....
+- **Sensors Manging dashboard**: Adjust Each sensor sleeping time
+- **Wifi manager** : To manage the wifi connectiivty 
 ---
 
