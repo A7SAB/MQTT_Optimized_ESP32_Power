@@ -79,7 +79,6 @@ Password: admin123
 
 ## **Future Enhancements**
 Here are some features we're working on:
-- **Full Web Interface**: Add user-friendly features like login pages and dashboards.
-- **Sensors Manging dashboard**: Adjust Each sensor sleeping time
+- Optimized notification system.
 ---
 
