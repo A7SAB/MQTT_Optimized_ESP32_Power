@@ -1,0 +1,1160 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- Left Column - Pump List -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Connected Pumps</h5>
+                    <button class="btn btn-outline-primary btn-sm" onclick="showPendingPumps()">
+                        Show Pending
+                        <span id="pendingCount" class="badge bg-warning ms-1">0</span>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="pendingPumpsAlert" class="alert alert-info" style="display: none;">
+                        <h6>Pending Pumps:</h6>
+                        <div id="pendingPumpsList" class="list-group list-group-flush"></div>
+                    </div>
+                    <div id="pumpList" class="list-group"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Pump Details -->
+        <div class="col-lg-8">
+            <!-- Setup Prompt -->
+            <div id="setupPrompt" class="alert alert-warning" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="alert-heading">New Pump Detected!</h5>
+                        <p class="mb-0">Configure this pump to begin monitoring.</p>
+                    </div>
+                    <button class="btn btn-warning" onclick="showSetup()">Configure</button>
+                </div>
+            </div>
+
+            <!-- Pump Display Card -->
+            <div id="pumpDisplay" class="card" style="display: none;">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="pump-icon">
+                                <svg id="pumpIcon" viewBox="0 0 100 150" style="width: 150px; height: 200px;">
+                                    <g id="tankContainer"></g>
+                                    <g id="waterLevel"></g>
+                                    <text id="percentageText" x="50" y="75" text-anchor="middle"></text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h4 id="pumpName" class="mb-2">--</h4>
+                            <p id="pumpLocation" class="text-muted mb-4">--</p>
+                            
+                            <div class="mb-4">
+                                <label class="form-label">Water Level</label>
+                                <div class="progress">
+                                    <div id="waterLevelBar" class="progress-bar" role="progressbar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="row">
+                                    <div class="col">
+                                        <label class="form-label">Volume</label>
+                                        <h5 id="waterVolume">--</h5>
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label">Status</label>
+                                        <h5 id="pumpStatus">--</h5>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col">
+                                        <label class="form-label">Last Active</label>
+                                        <h6 id="lastActive" class="text-muted">Never</h6>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button id="pumpToggle" class="btn btn-primary w-100">
+                                Toggle Pump
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule Section -->
+            <div class="card mt-4" id="scheduleSection" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0">Pump Schedule</h5>
+                </div>
+                <div class="card-body">
+                    <form id="scheduleForm" class="mb-3">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" name="date" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Time</label>
+                                <input type="time" class="form-control" name="time" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Duration (minutes)</label>
+                                <input type="number" class="form-control" name="duration" min="1" max="120" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3">Add Schedule</button>
+                    </form>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Duration</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="schedulesList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Automation Rules Section -->
+            <div class="card mt-4" id="rulesSection" style="display: none;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Automation Rules</h5>
+                    <button class="btn btn-outline-info btn-sm" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#ruleForm"
+                            aria-expanded="false">
+                        Add New Rule
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form id="ruleForm" class="collapse mb-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Sensor</label>
+                                        <select class="form-select" name="sensor_id" required>
+                                            <!-- Sensors will be populated dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Reading Type</label>
+                                        <select class="form-select" name="reading_type" required>
+                                            <option value="temperature">Temperature</option>
+                                            <option value="moisture">Moisture</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Condition</label>
+                                        <div class="input-group">
+                                            <select class="form-select" name="comparison_type" required>
+                                                <option value="above">Above</option>
+                                                <option value="below">Below</option>
+                                            </select>
+                                            <input type="number" class="form-control" 
+                                                   name="threshold_value" step="0.1" required
+                                                   placeholder="Value">
+                                            <span class="input-group-text sensor-unit">°C</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Action</label>
+                                        <select class="form-select" name="action" required>
+                                            <option value="on">Turn On Pump</option>
+                                            <option value="off">Turn Off Pump</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Duration (minutes)</label>
+                                        <input type="number" class="form-control" 
+                                               name="duration" min="1" max="120" required
+                                               placeholder="1-120 minutes">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">Save Rule</button>
+                                    <button type="button" class="btn btn-secondary" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#ruleForm">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+            
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Sensor</th>
+                                    <th>Reading Type</th>
+                                    <th>Condition</th>
+                                    <th>Action</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rulesList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Update Rule History Section -->
+            <div class="card mt-4" id="ruleHistorySection" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0">Automation History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Sensor</th>
+                                    <th>Reading Type</th>
+                                    <th>Value</th>
+                                    <th>Condition</th>
+                                    <th>Action</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ruleHistoryList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+<!-- Setup Modal -->
+<div class="modal fade" id="setupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Pump</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="setupForm">
+                    <div class="mb-3">
+                        <label class="form-label">Display Name</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input type="text" class="form-control" name="location">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tank Shape</label>
+                        <select class="form-select" name="tankShape" id="tankShape">
+                            <option value="box">Rectangular Tank</option>
+                            <option value="cylinder">Cylindrical Tank</option>
+                        </select>
+                    </div>
+                    <div id="tankDimensions"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="savePumpSetup()">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.pump-icon {
+    width: 150px;
+    height: 200px;
+    margin: auto;
+}
+.percentage-text {
+    font-size: 14px;
+    font-weight: bold;
+    fill: #333;
+}
+.list-group-item:not(.disabled) {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.list-group-item:not(.disabled):hover {
+    background-color: #f8f9fa;
+}
+
+.sensor-unit {
+    min-width: 45px;
+    text-align: center;
+}
+
+.reading-type-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.reading-type-temperature {
+    background-color: #e3f2fd;
+    color: #0d47a1;
+}
+
+.reading-type-moisture {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+}
+
+
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPump = null;
+let pendingPumps = new Set();
+let sensorData = {};
+
+
+//Automation calls
+function loadSensors() {
+    fetch('/api/get-readings')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) throw new Error('Failed to fetch sensors');
+            
+            // Process sensor readings into a structured format
+            sensorData = data.readings.reduce((acc, reading) => {
+                const deviceId = reading.device_id;
+                if (!acc[deviceId]) {
+                    acc[deviceId] = {
+                        device_id: deviceId,
+                        name: reading.name || deviceId,
+                        location: reading.location || 'No location',
+                        readings: {}
+                    };
+                }
+                
+                // Group readings by type
+                if (!acc[deviceId].readings[reading.sensor_type]) {
+                    acc[deviceId].readings[reading.sensor_type] = [];
+                }
+                acc[deviceId].readings[reading.sensor_type].push({
+                    value: reading.value,
+                    timestamp: reading.timestamp
+                });
+                
+                return acc;
+            }, {});
+            
+            // Update sensor selection dropdown
+            updateSensorSelect();
+        })
+        .catch(error => {
+            console.error('Error loading sensors:', error);
+            alert('Failed to load sensors: ' + error.message);
+        });
+}
+
+// Update sensor unit when reading type changes
+document.querySelector('select[name="reading_type"]').addEventListener('change', function(e) {
+    const readingType = e.target.value;
+    const unit = readingType === 'temperature' ? '°C' : '%';
+    document.querySelector('.sensor-unit').textContent = unit;
+});
+
+// Update the rules display
+function loadRules() {
+    if (!currentPump) return;
+    
+    fetch(`/api/pump/${currentPump}/rules`)
+        .then(response => response.json())
+        .then(rules => {
+            const tbody = document.getElementById('rulesList');
+            tbody.innerHTML = '';
+            
+            rules.forEach(rule => {
+                const unit = rule.reading_type === 'temperature' ? '°C' : '%';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${rule.sensor_name} (${rule.sensor_location})</td>
+                    <td>${rule.reading_type === 'temperature' ? 'Temperature' : 'Moisture'}</td>
+                    <td>${rule.comparison_type} ${rule.threshold_value}${unit}</td>
+                    <td>Turn ${rule.action}</td>
+                    <td>${rule.duration} minutes</td>
+                    <td>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" 
+                                   ${rule.is_active ? 'checked' : ''}
+                                   onchange="toggleRule(${rule.id}, this)">
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteRule(${rule.id})">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading rules:', error);
+            alert('Failed to load rules');
+        });
+}
+
+// Update the rule history display
+function loadRuleHistory() {
+    if (!currentPump) return;
+    
+    fetch(`/api/pump/${currentPump}/rule-history`)
+        .then(response => response.json())
+        .then(history => {
+            const tbody = document.getElementById('ruleHistoryList');
+            tbody.innerHTML = '';
+            
+            history.forEach(entry => {
+                const unit = entry.reading_type === 'temperature' ? '°C' : '%';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${formatDateTime(entry.executed_at)}</td>
+                    <td>${entry.sensor_name}</td>
+                    <td>${entry.reading_type === 'temperature' ? 'Temperature' : 'Moisture'}</td>
+                    <td>${entry.sensor_value}${unit}</td>
+                    <td>${entry.comparison_type} ${entry.threshold_value}${unit}</td>
+                    <td>
+                        <span class="badge ${entry.action_taken === 'on' ? 'bg-success' : 'bg-danger'}">
+                            Turned ${entry.action_taken}
+                        </span>
+                    </td>
+                    <td>${entry.status || 'Completed'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading rule history:', error);
+            alert('Failed to load rule history');
+        });
+}
+
+// Update rule form submission
+document.getElementById('ruleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!currentPump) {
+        alert('Please select a pump first');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const data = {
+        sensor_id: formData.get('sensor_id'),
+        reading_type: formData.get('reading_type'),
+        comparison_type: formData.get('comparison_type'),
+        threshold_value: parseFloat(formData.get('threshold_value')),
+        action: formData.get('action'),
+        duration: parseInt(formData.get('duration'))
+    };
+    
+    // Validation
+    if (isNaN(data.threshold_value) || isNaN(data.duration)) {
+        alert('Please enter valid numbers for threshold and duration');
+        return;
+    }
+    
+    if (data.duration < 1 || data.duration > 120) {
+        alert('Duration must be between 1 and 120 minutes');
+        return;
+    }
+    
+    fetch(`/api/pump/${currentPump}/rules`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.error) throw new Error(result.error);
+        this.reset();
+        // Reset the unit display
+        document.querySelector('.sensor-unit').textContent = '°C';
+        loadRules();
+        alert('Rule added successfully!');
+    })
+    .catch(error => {
+        console.error('Error adding rule:', error);
+        alert('Error adding rule: ' + error.message);
+    });
+});
+
+
+// Add event listener for rule form
+document.getElementById('ruleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!currentPump) {
+        alert('Please select a pump first');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    
+    // Validate inputs
+    if (isNaN(data.threshold_value) || isNaN(data.duration)) {
+        alert('Please enter valid numbers for threshold and duration');
+        return;
+    }
+    
+    data.threshold_value = parseFloat(data.threshold_value);
+    data.duration = parseInt(data.duration);
+    
+    if (data.duration < 1 || data.duration > 120) {
+        alert('Duration must be between 1 and 120 minutes');
+        return;
+    }
+    
+    fetch(`/api/pump/${currentPump}/rules`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.error) throw new Error(result.error);
+        this.reset();
+        loadRules();
+        alert('Rule added successfully!');
+    })
+    .catch(error => {
+        console.error('Error adding rule:', error);
+        alert('Error adding rule: ' + error.message);
+    });
+});
+
+function toggleRule(ruleId, checkbox) {
+    fetch(`/api/pump/rule/${ruleId}/toggle`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.error) throw new Error(result.error);
+        loadRules();
+    })
+    .catch(error => {
+        console.error('Error toggling rule:', error);
+        alert('Error toggling rule: ' + error.message);
+        checkbox.checked = !checkbox.checked;
+    });
+}
+
+function deleteRule(ruleId) {
+    if (!confirm('Are you sure you want to delete this rule?')) return;
+    
+    fetch(`/api/pump/rule/${ruleId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.error) throw new Error(result.error);
+        loadRules();
+    })
+    .catch(error => {
+        console.error('Error deleting rule:', error);
+        alert('Error deleting rule: ' + error.message);
+    });
+}
+
+
+//Schedule process
+
+document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    if (!currentPump) {
+        alert('Please select a pump first');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const data = {
+        date: formData.get('date'),
+        time: formData.get('time'),
+        duration: parseInt(formData.get('duration'))
+    };
+    
+    // Validate date and time
+    const scheduleDateTime = new Date(`${data.date}T${data.time}`);
+    if (scheduleDateTime < new Date()) {
+        alert('Cannot schedule in the past');
+        return;
+    }
+    
+    // Validate duration
+    if (isNaN(data.duration) || data.duration < 1 || data.duration > 120) {
+        alert('Duration must be between 1 and 120 minutes');
+        return;
+    }
+    
+    // Send the schedule request
+    fetch(`/api/pump/${currentPump}/schedule`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(text || `HTTP error! status: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.error) throw new Error(result.error);
+        this.reset();
+        loadSchedules();
+        alert('Schedule added successfully!');
+    })
+    .catch(error => {
+        console.error('Error adding schedule:', error);
+        alert('Error adding schedule: ' + error.message);
+    });
+});
+
+
+function loadSchedules() {
+    if (!currentPump) {
+        return;
+    }
+    
+    fetch(`/api/pump/${currentPump}/schedules`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(schedules => {
+            const tbody = document.getElementById('schedulesList');
+            tbody.innerHTML = '';
+            
+            schedules.forEach(schedule => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${schedule.schedule_date}</td>
+                    <td>${schedule.schedule_time}</td>
+                    <td>${schedule.duration} minutes</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule.schedule_date}', '${schedule.schedule_time}')">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading schedules:', error);
+        });
+}
+
+function deleteSchedule(date, time) {
+    if (!currentPump) {
+        alert('No pump selected');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to delete this schedule?')) {
+        return;
+    }
+    
+    console.log(`Deleting schedule: date=${date}, time=${time}`);
+    
+    fetch(`/api/pump/${currentPump}/schedule`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ date, time })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || `Server error: ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        console.log('Schedule deleted successfully');
+        loadSchedules(); // Refresh the schedule list
+    })
+    .catch(error => {
+        console.error('Error deleting schedule:', error);
+        alert('Error deleting schedule: ' + error.message);
+    });
+}
+
+function loadSchedules() {
+    if (!currentPump) {
+        console.log('No pump selected, skipping schedule load');
+        return;
+    }
+    
+    console.log('Loading schedules for pump:', currentPump);
+    
+    fetch(`/api/pump/${currentPump}/schedules`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(schedules => {
+            console.log('Received schedules:', schedules);
+            const tbody = document.getElementById('schedulesList');
+            tbody.innerHTML = '';
+            
+            schedules.forEach(schedule => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${schedule.schedule_date}</td>
+                    <td>${schedule.schedule_time}</td>
+                    <td>${schedule.duration} minutes</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule.schedule_date}', '${schedule.schedule_time}')">
+                            Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading schedules:', error);
+        });
+}
+
+function updateTankIcon(shape, percentage) {
+    const tankContainer = document.getElementById('tankContainer');
+    const waterLevel = document.getElementById('waterLevel');
+    const percentageText = document.getElementById('percentageText');
+    const p = percentage || 0;
+    const height = 110;
+    const waterHeight = (p / 100) * height;
+    
+    if (shape === 'cylinder') {
+        tankContainer.innerHTML = `
+            <path d="M20,10 A30,10 0 0,1 80,10 L80,120 A30,10 0 0,1 20,120 Z" 
+                  fill="none" stroke="#ccc" stroke-width="2"/>
+        `;
+        waterLevel.innerHTML = `
+            <path d="M20,${120-waterHeight} A30,10 0 0,1 80,${120-waterHeight} L80,120 A30,10 0 0,1 20,120 Z" 
+                  fill="#0d6efd"/>
+        `;
+    } else {
+        tankContainer.innerHTML = `
+            <rect x="20" y="10" width="60" height="${height}" fill="none" stroke="#ccc" stroke-width="2"/>
+        `;
+        waterLevel.innerHTML = `
+            <rect x="20" y="${120-waterHeight}" width="60" height="${waterHeight}" fill="#0d6efd"/>
+        `;
+    }
+    
+    percentageText.textContent = `${Math.round(p)}%`;
+}
+
+function updateDimensionFields(shape) {
+    const container = document.getElementById('tankDimensions');
+    if (shape === 'cylinder') {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Diameter (cm)</label>
+                        <input type="number" class="form-control" name="diameter" required min="1">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Height (cm)</label>
+                        <input type="number" class="form-control" name="height" required min="1">
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Length (cm)</label>
+                        <input type="number" class="form-control" name="length" required min="1">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Width (cm)</label>
+                        <input type="number" class="form-control" name="width" required min="1">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Height (cm)</label>
+                        <input type="number" class="form-control" name="height" required min="1">
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function checkPendingPumps() {
+    fetch('/api/pumps')
+        .then(response => response.json())
+        .then(pumps => {
+            const pending = pumps.filter(p => p.status === 'pending');
+            document.getElementById('setupPrompt').style.display = 
+                pending.length > 0 ? 'block' : 'none';
+            
+            if (pending.length > 0 && !currentPump) {
+                currentPump = pending[0].pump_id;
+            }
+            
+            updatePumpList(pumps);
+        });
+}
+
+
+function showPendingPumps() {
+    fetch('/api/pending-pumps')
+        .then(response => response.json())
+        .then(pumps => {
+            const pendingList = document.getElementById('pendingPumpsList');
+            pendingList.innerHTML = '';
+            
+            pumps.forEach(pumpId => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                item.innerHTML = `
+                    <span>${pumpId}</span>
+                    <button class="btn btn-sm btn-primary" onclick="configurePump('${pumpId}')">
+                        Configure
+                    </button>
+                `;
+                pendingList.appendChild(item);
+            });
+            
+            document.getElementById('pendingCount').textContent = pumps.length;
+            document.getElementById('pendingPumpsAlert').style.display = 
+                pumps.length > 0 ? 'block' : 'none';
+        });
+}
+
+function configurePump(pumpId) {
+    currentPump = pumpId;
+    showSetup();
+}
+
+
+function showSetup() {
+    const modal = new bootstrap.Modal(document.getElementById('setupModal'));
+    document.getElementById('setupForm').reset();
+    document.getElementById('setupForm').elements['name'].value = currentPump || '';
+    modal.show();
+}
+
+function savePumpSetup() {
+    const form = document.getElementById('setupForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+
+    fetch(`/api/pump/${currentPump}/setup`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Setup failed');
+        return response.json();
+    })
+    .then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('setupModal')).hide();
+        checkPendingPumps();
+    })
+    .catch(error => {
+        alert('Error saving pump setup: ' + error);
+    });
+}
+function updatePumpList(pumps) {
+    const list = document.getElementById('pumpList');
+    list.innerHTML = '';
+    
+    pumps.forEach(pump => {
+        const item = document.createElement('div');
+        item.className = `list-group-item ${pump.status === 'pending' ? 'list-group-item-warning disabled' : ''}`;
+        item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0">${pump.name}</h6>
+                    <small class="text-muted">${pump.location || 'No location'}</small>
+                </div>
+                <span class="badge ${pump.status === 'pending' ? 'bg-warning' : 'bg-success'}">
+                    ${pump.status}
+                </span>
+            </div>
+        `;
+        
+        if (pump.status !== 'pending') {
+            item.onclick = () => selectPump(pump.pump_id);
+        }
+        
+        list.appendChild(item);
+    });
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return 'Never';
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+function updatePumpStatus() {
+    if (!currentPump) return;
+    
+    fetch(`/api/pump/${currentPump}/status`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Pump status:', data);
+            
+            // Update pump name and location
+            document.getElementById('pumpName').textContent = data.name || currentPump;
+            document.getElementById('pumpLocation').textContent = data.location || 'No location set';
+            
+            // Update water level display
+            if (data.volume && typeof data.volume.percentage === 'number') {
+                const percentage = data.volume.percentage;
+                document.getElementById('waterLevelBar').style.width = `${percentage}%`;
+                document.getElementById('waterLevelBar').setAttribute('aria-valuenow', percentage);
+                document.getElementById('waterLevelBar').textContent = `${percentage.toFixed(1)}%`;
+                
+                // Update volume display
+                if (data.volume.volume) {
+                    document.getElementById('waterVolume').textContent = `${data.volume.volume.toFixed(2)}L`;
+                }
+                
+                // Update tank visualization
+                updateTankIcon(data.volume.tank_shape || 'box', percentage);
+            }
+            
+            // Update pump status
+            const isRunning = data.is_running;
+            const statusElement = document.getElementById('pumpStatus');
+            statusElement.textContent = isRunning ? 'Running' : 'Stopped';
+            statusElement.className = isRunning ? 'text-success' : 'text-secondary';
+            
+            // Update last active time
+            document.getElementById('lastActive').textContent = 
+                formatDateTime(data.last_update || data.reading_timestamp);
+            
+            // Update toggle button
+            const toggleBtn = document.getElementById('pumpToggle');
+            toggleBtn.textContent = isRunning ? 'Stop Pump' : 'Start Pump';
+            toggleBtn.className = `btn w-100 ${isRunning ? 'btn-danger' : 'btn-success'}`;
+        })
+        .catch(error => {
+            console.error('Error fetching pump status:', error);
+            // Handle error state in UI
+            document.getElementById('waterVolume').textContent = 'Error';
+            document.getElementById('pumpStatus').textContent = 'Unknown';
+            document.getElementById('lastActive').textContent = 'Cannot connect';
+        });
+}
+
+function showSetup() {
+    const modal = new bootstrap.Modal(document.getElementById('setupModal'));
+    modal.show();
+}
+
+function savePumpSetup() {
+    const form = document.getElementById('setupForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = new FormData(form);
+    const data = {
+        name: formData.get('name'),
+        location: formData.get('location'),
+        tank_shape: formData.get('tankShape') // Changed field name to match backend
+    };
+
+    // Add dimension fields based on tank shape
+    if (data.tank_shape === 'box') {
+        data.tank_length = parseFloat(formData.get('length')); // Changed field names
+        data.tank_width = parseFloat(formData.get('width'));
+        data.tank_height = parseFloat(formData.get('height'));
+    } else {
+        data.tank_diameter = parseFloat(formData.get('diameter')); // Changed field names
+        data.tank_height = parseFloat(formData.get('height'));
+    }
+
+    fetch(`/api/pump/${currentPump}/setup`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) throw new Error(data.error);
+        bootstrap.Modal.getInstance(document.getElementById('setupModal')).hide();
+        form.reset();
+        currentPump = null;
+        checkPendingPumps();
+        showPendingPumps();
+    })
+    .catch(error => {
+        alert('Error saving pump setup: ' + error.message);
+    });
+}
+
+
+function updateSensorSelect() {
+    const sensorSelect = document.querySelector('select[name="sensor_id"]');
+    if (!sensorSelect) return;
+    
+    sensorSelect.innerHTML = '<option value="">Select a sensor</option>';
+    
+    // Convert sensorData object to array and sort by name
+    const sensors = Object.values(sensorData).sort((a, b) => 
+        (a.name || a.device_id).localeCompare(b.name || b.device_id)
+    );
+    
+    sensors.forEach(sensor => {
+        const option = document.createElement('option');
+        option.value = sensor.device_id;
+        option.textContent = `${sensor.name || sensor.device_id} (${sensor.location || 'No location'})`;
+        sensorSelect.appendChild(option);
+    });
+}
+
+
+// Event Listeners
+document.getElementById('tankShape').addEventListener('change', (e) => {
+    updateDimensionFields(e.target.value);
+});
+
+document.getElementById('pumpToggle').addEventListener('click', () => {
+    const command = document.getElementById('pumpStatus').textContent === 'Running' ? 'off' : 'on';
+    fetch(`/api/pump/${currentPump}/control`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ command })
+    }).then(updatePumpStatus);
+});
+
+
+document.querySelector('select[name="sensor_id"]').addEventListener('change', function(e) {
+    const sensorId = e.target.value;
+    const sensorType = sensorData[sensorId]?.readings?.sensor_type || 'temperature';
+    const unit = sensorType === 'temperature' ? '°C' : '%';
+    document.querySelector('.sensor-unit').textContent = unit;
+});
+
+function selectPump(pumpId) {
+    currentPump = pumpId;
+    document.getElementById('pumpDisplay').style.display = 'block';
+    document.getElementById('scheduleSection').style.display = 'block';
+    document.getElementById('rulesSection').style.display = 'block';
+    document.getElementById('ruleHistorySection').style.display = 'block';
+    
+    updatePumpStatus();
+    loadSchedules();
+    loadRules();
+    loadRuleHistory();
+}
+
+
+// Initialize
+updateDimensionFields('box');
+checkPendingPumps();
+setInterval(checkPendingPumps, 5000);
+setInterval(() => {
+    if (currentPump) updatePumpStatus();
+}, 2000);
+
+// Add to initialization section
+document.addEventListener('DOMContentLoaded', function() {
+    // Load sensors immediately
+    loadSensors();
+    
+    // Update sensors periodically
+    setInterval(loadSensors, 30000);
+    
+    // Initialize other components
+    updateDimensionFields('box');
+    checkPendingPumps();
+    
+    // Set up periodic updates
+    setInterval(checkPendingPumps, 5000);
+    setInterval(() => {
+        if (currentPump) {
+            updatePumpStatus();
+            loadSchedules();
+            loadRules();
+            loadRuleHistory();
+        }
+    }, 10000);
+});
+
+// Discovery indicator
+setInterval(() => {
+    const discovery = document.getElementById('pumpDiscovery');
+    discovery.style.display = 'block';
+    setTimeout(() => discovery.style.display = 'none', 2000);
+}, 10000);
+
+setInterval(showPendingPumps, 5000);
+
+</script>
+{% endblock %}  

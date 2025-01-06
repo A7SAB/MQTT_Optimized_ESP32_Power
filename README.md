@@ -71,19 +71,14 @@ Password: admin123
 
 ### Components:
 - **ESP32**: Microcontroller for IoT functionality.
-- **DHT11**: Humidity and temperature sensor.
+- **Ultrasonic sensor**: Measuering the water capacity.
+- **Soil Moisture Sensor**: Measuring the soil Moisture.
+- **Temperture sensor**: Measuering the temperture sensor.
 
-### Circuit Diagram:
-_Coming Soon!_
-
----
 
 ## **Future Enhancements**
 Here are some features we're working on:
-- **Database Integration**: Store sensor readings and user data persistently.
 - **Full Web Interface**: Add user-friendly features like login pages and dashboards.
-- **Mobile Compatibility**: Responsive design for mobile devices.
 - **Sensors Manging dashboard**: Adjust Each sensor sleeping time
-- **Wifi manager** : To manage the wifi connectiivty 
 ---
 

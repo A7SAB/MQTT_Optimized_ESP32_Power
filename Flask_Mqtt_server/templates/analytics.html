@@ -1,157 +1,419 @@
-{# templates/analytics.html #}
 {% extends 'base.html' %}
 
-{% block title %}Analytics - Sensor Network{% endblock %}
+{% block title %}Analytics - SensorNet{% endblock %}
+
+{% block header %}Sensor Analytics{% endblock %}
+
+{% block styles %}
+<style>
+    .chart-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+
+    @media (min-width: 1200px) {
+        .chart-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .gauge-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        padding: 1rem;
+    }
+
+    @media (min-width: 1200px) {
+        .gauge-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .chart-container {
+        background: var(--card-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px var(--shadow-color);
+        padding: 1rem;
+    }
+
+    .chart-title {
+        color: var(--text-color);
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .no-data {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 300px;
+        color: var(--text-muted);
+    }
+
+    .sensor-selector {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .sensor-selector select {
+        background: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .time-range-selector {
+        margin-top: 1rem;
+    }
+
+    .time-range-selector button {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        margin-right: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .time-range-selector button:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .time-range-selector button.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="main-content">
-    <header class="main-header">
-        <h1 class="header-title">Analytics Dashboard</h1>
-        <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-primary" onclick="exportData()">
-                <i class="fas fa-download mr-2"></i>
-                Export Data
-            </button>
-        </div>
-    </header>
-
-    <!-- Analytics Overview -->
-    <div class="dashboard-stats">
-        <div class="stat-card">
-            <div class="stat-card-header">
-                <span class="stat-card-title">24h Temperature Range</span>
-                <i class="fas fa-temperature-high"></i>
+<div class="container-fluid">
+    <!-- Sensor and Time Range Selector -->
+    <div class="sensor-selector">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label for="sensor-select" class="form-label">Select Sensor</label>
+                <select id="sensor-select" class="form-select" onchange="sensorChanged()">
+                    <option value="">Loading sensors...</option>
+                </select>
             </div>
-            <div class="stat-card-value">
-                {{ analytics.temp_range.min }}°C - {{ analytics.temp_range.max }}°C
+            <div class="col-md-8">
+                <div class="time-range-selector">
+                    <button data-range="1h" onclick="setTimeRange(this, '1h')">1 Hour</button>
+                    <button data-range="6h" onclick="setTimeRange(this, '6h')">6 Hours</button>
+                    <button data-range="24h" onclick="setTimeRange(this, '24h')" class="active">24 Hours</button>
+                    <button data-range="7d" onclick="setTimeRange(this, '7d')">7 Days</button>
+                    <button data-range="30d" onclick="setTimeRange(this, '30d')">30 Days</button>
+                </div>
             </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-card-header">
-                <span class="stat-card-title">24h Humidity Range</span>
-                <i class="fas fa-tint"></i>
-            </div>
-            <div class="stat-card-value">
-                {{ analytics.humid_range.min }}% - {{ analytics.humid_range.max }}%
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-card-header">
-                <span class="stat-card-title">Readings (24h)</span>
-                <i class="fas fa-chart-bar"></i>
-            </div>
-            <div class="stat-card-value">{{ analytics.readings_24h }}</div>
         </div>
     </div>
 
-    <!-- Temperature Chart -->
-    <div class="card">
-        <div class="card-header">
-            <h5>Temperature Trends</h5>
-            <div class="btn-group">
-                <button class="btn btn-outline-primary active">24h</button>
-                <button class="btn btn-outline-primary">7d</button>
-                <button class="btn btn-outline-primary">30d</button>
-            </div>
+    <!-- Line Charts -->
+    <div class="chart-grid">
+        <div class="chart-container">
+            <h2 class="chart-title">Temperature Trend</h2>
+            <div id="tempChart" style="width: 100%; height: 400px;"></div>
         </div>
-        <div class="card-body">
-            <canvas id="tempChart" height="300"></canvas>
+        <div class="chart-container">
+            <h2 class="chart-title">Moisture Trend</h2>
+            <div id="moistureChart" style="width: 100%; height: 400px;"></div>
         </div>
     </div>
 
-    <!-- Humidity Chart -->
-    <div class="card">
-        <div class="card-header">
-            <h5>Humidity Trends</h5>
-            <div class="btn-group">
-                <button class="btn btn-outline-primary active">24h</button>
-                <button class="btn btn-outline-primary">7d</button>
-                <button class="btn btn-outline-primary">30d</button>
-            </div>
+    <!-- Gauges -->
+    <div class="gauge-grid">
+        <div class="chart-container">
+            <h2 class="chart-title">Current Temperature</h2>
+            <div id="tempGauge" style="width: 100%; height: 300px;"></div>
         </div>
-        <div class="card-body">
-            <canvas id="humidChart" height="300"></canvas>
+        <div class="chart-container">
+            <h2 class="chart-title">Current Moisture</h2>
+            <div id="moistureGauge" style="width: 100%; height: 300px;"></div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-{{ super() }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Load Google Charts -->
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
-    // Prepare data for charts
-    const readings = {{ readings|tojson }};
-    const tempReadings = readings.filter(r => r.sensor_type === 'temperature');
-    const humidReadings = readings.filter(r => r.sensor_type === 'humidity');
+    // Load Google Charts
+    google.charts.load('current', { packages: ['corechart', 'gauge'] });
+    google.charts.setOnLoadCallback(initializeCharts);
 
-    // Temperature Chart
-    new Chart(document.getElementById('tempChart'), {
-        type: 'line',
-        data: {
-            labels: tempReadings.map(r => new Date(r.timestamp).toLocaleTimeString()),
-            datasets: [{
-                label: 'Temperature (°C)',
-                data: tempReadings.map(r => r.value),
-                borderColor: '#ef4444',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false
-                }
+    // Chart instances
+    let tempChart = null;
+    let moistureChart = null;
+    let tempGauge = null;
+    let moistureGauge = null;
+
+    // Current selections
+    let selectedSensor = null;
+    let selectedTimeRange = '24h';
+
+    async function loadSensors() {
+        try {
+            const response = await fetch('/api/get-readings?sensor=all&range=' + selectedTimeRange);
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error('Failed to fetch sensors');
             }
-        }
-    });
 
-    // Humidity Chart
-    new Chart(document.getElementById('humidChart'), {
-        type: 'line',
-        data: {
-            labels: humidReadings.map(r => new Date(r.timestamp).toLocaleTimeString()),
-            datasets: [{
-                label: 'Humidity (%)',
-                data: humidReadings.map(r => r.value),
-                borderColor: '#3b82f6',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: false
-                }
+            const select = document.getElementById('sensor-select');
+            select.innerHTML = '<option value="">Select a sensor...</option>';
+
+            // Get unique sensor IDs
+            const sensors = [...new Set(data.readings.map(r => r.device_id))];
+            
+            sensors.forEach(sensorId => {
+                const sensorName = data.readings.find(r => r.device_id === sensorId)?.name || sensorId;
+                const option = document.createElement('option');
+                option.value = sensorId;
+                option.textContent = sensorName;
+                select.appendChild(option);
+            });
+
+            if (sensors.length > 0) {
+                select.value = sensors[0];
+                selectedSensor = sensors[0];
+                updateCharts();
             }
+        } catch (error) {
+            console.error('Error loading sensors:', error);
+            document.getElementById('sensor-select').innerHTML = 
+                '<option value="">Error loading sensors</option>';
         }
-    });
+    }
 
-    function exportData() {
-        const data = readings;
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'sensor_data.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    function setTimeRange(button, range) {
+        document.querySelectorAll('.time-range-selector button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        button.classList.add('active');
+        
+        selectedTimeRange = range;
+        updateCharts();
+    }
+
+    function sensorChanged() {
+        selectedSensor = document.getElementById('sensor-select').value;
+        if (selectedSensor) {
+            updateCharts();
+        } else {
+            showNoDataMessage();
+        }
+    }
+
+    async function fetchSensorData() {
+        if (!selectedSensor) return null;
+
+        try {
+            const response = await fetch(`/api/get-readings?sensor=${selectedSensor}&range=${selectedTimeRange}`);
+            const data = await response.json();
+            
+            if (!data.success || !data.readings.length) {
+                showNoDataMessage();
+                return null;
+            }
+
+            const now = new Date();
+            const timeRanges = {
+                '1h': 60 * 60 * 1000,
+                '6h': 6 * 60 * 60 * 1000,
+                '24h': 24 * 60 * 60 * 1000,
+                '7d': 7 * 24 * 60 * 60 * 1000,
+                '30d': 30 * 24 * 60 * 60 * 1000
+            };
+
+            const cutoffTime = new Date(now - timeRanges[selectedTimeRange]);
+
+            return data.readings
+                .filter(reading => new Date(reading.timestamp) > cutoffTime)
+                .map(reading => ({
+                    timestamp: new Date(reading.timestamp),
+                    value: reading.value,
+                    type: reading.sensor_type
+                }));
+        } catch (error) {
+            console.error('Error fetching sensor data:', error);
+            showNoDataMessage();
+            return null;
+        }
+    }
+
+    function showNoDataMessage() {
+        ['tempChart', 'moistureChart', 'tempGauge', 'moistureGauge'].forEach(id => {
+            const element = document.getElementById(id);
+            element.innerHTML = `
+                <div class="no-data">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <p>No sensor data available</p>
+                </div>
+            `;
+        });
+    }
+
+    function processChartData(rawData) {
+        if (!rawData) return null;
+
+        rawData.sort((a, b) => a.timestamp - b.timestamp);
+
+        const tempReadings = rawData.filter(d => d.type === 'temperature');
+        const moistureReadings = rawData.filter(d => d.type === 'moisture');
+
+        // Create temperature data
+        const tempData = new google.visualization.DataTable();
+        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('number', 'Temperature (°C)');
+        tempData.addRows(tempReadings.map(reading => [
+            reading.timestamp,
+            reading.value
+        ]));
+
+        // Create moisture data
+        const moistureData = new google.visualization.DataTable();
+        moistureData.addColumn('datetime', 'Time');
+        moistureData.addColumn('number', 'Moisture (%)');
+        moistureData.addRows(moistureReadings.map(reading => [
+            reading.timestamp,
+            reading.value
+        ]));
+
+        // Get latest readings for gauges
+        const latestTemp = tempReadings.length ? tempReadings[tempReadings.length - 1].value : 0;
+        const latestMoisture = moistureReadings.length ? moistureReadings[moistureReadings.length - 1].value : 0;
+
+        return {
+            tempData,
+            moistureData,
+            latestTemp,
+            latestMoisture
+        };
+    }
+
+    async function updateCharts() {
+        const rawData = await fetchSensorData();
+        const processedData = processChartData(rawData);
+        
+        if (!processedData) return;
+
+        const chartOptions = {
+            curveType: 'function',
+            legend: { position: 'bottom' },
+            hAxis: { 
+                title: 'Time',
+                format: 'HH:mm',
+                gridlines: { color: 'var(--border-color)' }
+            },
+            vAxis: { 
+                gridlines: { color: 'var(--border-color)' }
+            },
+            backgroundColor: { fill: 'transparent' },
+            chartArea: { width: '85%', height: '75%' }
+        };
+
+        // Update temperature chart
+        if (tempChart) {
+            tempChart.draw(processedData.tempData, {
+                ...chartOptions,
+                colors: ['#ef4444'],
+                vAxis: { ...chartOptions.vAxis, title: 'Temperature (°C)' }
+            });
+        }
+
+        // Update moisture chart
+        if (moistureChart) {
+            moistureChart.draw(processedData.moistureData, {
+                ...chartOptions,
+                colors: ['#3b82f6'],
+                vAxis: { ...chartOptions.vAxis, title: 'Moisture (%)' }
+            });
+        }
+
+        // Update temperature gauge
+        if (tempGauge) {
+            const tempGaugeData = google.visualization.arrayToDataTable([
+                ['Label', 'Value'],
+                ['Temperature (°C)', processedData.latestTemp]
+            ]);
+
+            tempGauge.draw(tempGaugeData, {
+                min: 0,
+                max: 50,
+                yellowFrom: 30,
+                yellowTo: 40,
+                redFrom: 40,
+                redTo: 50,
+                minorTicks: 5,
+                animation: { duration: 400, easing: 'out' }
+            });
+        }
+
+        // Update moisture gauge
+        if (moistureGauge) {
+            const moistureGaugeData = google.visualization.arrayToDataTable([
+                ['Label', 'Value'],
+                ['Moisture (%)', processedData.latestMoisture]
+            ]);
+
+            moistureGauge.draw(moistureGaugeData, {
+                min: 0,
+                max: 100,
+                yellowFrom: 60,
+                yellowTo: 80,
+                redFrom: 80,
+                redTo: 100,
+                minorTicks: 5,
+                animation: { duration: 400, easing: 'out' }
+            });
+        }
+    }
+
+    function initializeCharts() {
+        // Initialize chart instances
+        tempChart = new google.visualization.LineChart(document.getElementById('tempChart'));
+        moistureChart = new google.visualization.LineChart(document.getElementById('moistureChart'));
+        tempGauge = new google.visualization.Gauge(document.getElementById('tempGauge'));
+        moistureGauge = new google.visualization.Gauge(document.getElementById('moistureGauge'));
+
+        // Load available sensors
+        loadSensors();
+
+        // Set up WebSocket for real-time updates
+        const socket = io();
+        socket.on('mqtt_message', function(data) {
+            if (data.device_id === selectedSensor) {
+                updateCharts();
+            }
+        });
+
+        // Handle window resize
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(updateCharts, 250);
+        });
     }
 </script>
 {% endblock %}

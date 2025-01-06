@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Sensor Management - SensorNet{% endblock %}
+
+{% block header %}Sensor Management{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('discovery') }}" class="btn btn-primary">
+    <i class="fas fa-plus me-2"></i>Add New Sensor
+</a>
+{% endblock %}
+
+
+{% block styles %}
+<style>
+    .sensor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+    }
+    .sensor-card {
+        background: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: box-shadow 0.3s ease;
+    }
+    .sensor-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .sensor-header {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .sensor-content {
+        padding: 1rem;
+    }
+    .sensor-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .sensor-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .alert {
+        padding: 1rem;
+        margin: 1rem;
+        border-radius: 0.5rem;
+    }
+    .alert-success {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    .alert-error {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    .loading-spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 2rem auto;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .sleep-time-select {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        width: 100%;
+        cursor: pointer;
+    }
+    .sleep-time-select:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    .sleep-time-wrapper {
+        position: relative;
+    }
+    .sleep-time-spinner {
+        position: absolute;
+        right: 2rem;
+        top: 50%;
+        transform: translateY(-50%);
+        display: none;
+    }
+    .sleep-time-wrapper.loading .sleep-time-spinner {
+        display: inline-block;
+    }
+    .sleep-time-wrapper.loading select {
+        opacity: 0.7;
+    }
+    .update-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+        display: none;
+    }
+    .update-feedback.show {
+        display: block;
+    }
+    .update-feedback.success {
+        color: #10b981;
+    }
+    .update-feedback.error {
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="status-messages"></div>
+    <div id="sensor-management-root">
+        <div class="loading-spinner"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    function formatTimestamp(timestamp) {
+        if (!timestamp) return 'N/A';
+        return new Date(timestamp).toLocaleString();
+    }
+
+    function showMessage(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.getElementById('status-messages');
+        container.appendChild(alertDiv);
+        
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+
+    async function loadSensors() {
+        const root = document.getElementById('sensor-management-root');
+        root.innerHTML = '<div class="loading-spinner"></div>';
+
+        try {
+            const response = await fetch('/api/get-readings');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error('Failed to load sensors');
+            }
+
+            root.innerHTML = '';
+            console.log('Raw sensor data:', data);
+
+            if (!data.readings || data.readings.length === 0) {
+                root.innerHTML = `
+                    <div class="sensor-card">
+                        <div class="sensor-content text-center">
+                            <i class="fas fa-sensor fa-2x mb-3 text-muted"></i>
+                            <p>No sensors found.</p>
+                            <a href="{{ url_for('discovery') }}" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i>Discover Sensors
+                            </a>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group readings by device_id
+            const sensorMap = new Map();
+            data.readings.forEach(reading => {
+                if (!sensorMap.has(reading.device_id)) {
+                    sensorMap.set(reading.device_id, {
+                        device_id: reading.device_id,
+                        name: reading.name,
+                        location: reading.location,
+                        sleep_time: reading.sleep_time,
+                        temperature: null,
+                        moisture: null,
+                        timestamp: reading.timestamp
+                    });
+                }
+                
+                const sensor = sensorMap.get(reading.device_id);
+                if (reading.sensor_type === 'temperature') {
+                    sensor.temperature = reading.value;
+                } else if (reading.sensor_type === 'moisture') {
+                    sensor.moisture = reading.value;
+                }
+                // Update timestamp if this reading is newer
+                if (new Date(reading.timestamp) > new Date(sensor.timestamp)) {
+                    sensor.timestamp = reading.timestamp;
+                }
+            });
+
+            const sensorGrid = document.createElement('div');
+            sensorGrid.className = 'sensor-grid';
+
+            sensorMap.forEach(sensor => {
+                console.log('Processing sensor:', sensor);
+                const card = document.createElement('div');
+                card.className = 'sensor-card';
+                card.innerHTML = `
+                    <div class="sensor-header">
+                        <h3 class="m-0">${sensor.name || sensor.device_id}</h3>
+                        <button onclick="deleteSensor('${sensor.device_id}')" 
+                                class="btn btn-link text-danger p-0" 
+                                title="Delete sensor">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="sensor-content">
+                        <div class="sensor-stats">
+                            <div class="sensor-stat">
+                                <i class="fas fa-thermometer-half text-danger"></i>
+                                <span>${sensor.temperature !== null ? sensor.temperature.toFixed(1) + '°C' : 'N/A'}</span>
+                            </div>
+                            <div class="sensor-stat">
+                                <i class="fas fa-tint text-primary"></i>
+                                <span>${sensor.moisture !== null ? sensor.moisture.toFixed(1) + '%' : 'N/A'}</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="d-block mb-2">Sleep Time:</label>
+                            <div class="sleep-time-wrapper">
+                                <select 
+                                    class="sleep-time-select"
+                                    onchange="updateSleepTime('${sensor.device_id}', this.value, this)"
+                                >
+                                    <option value="30" ${sensor.sleep_time === 30 ? 'selected' : ''}>30 seconds</option>
+                                    <option value="60" ${sensor.sleep_time === 60 ? 'selected' : ''}>1 minute</option>
+                                    <option value="300" ${sensor.sleep_time === 300 ? 'selected' : ''}>5 minutes</option>
+                                    <option value="600" ${sensor.sleep_time === 600 ? 'selected' : ''}>10 minutes</option>
+                                    <option value="1800" ${sensor.sleep_time === 1800 ? 'selected' : ''}>30 minutes</option>
+                                    <option value="3600" ${sensor.sleep_time === 3600 ? 'selected' : ''}>1 hour</option>
+                                </select>
+                                <div class="sleep-time-spinner">
+                                    <i class="fas fa-spinner fa-spin"></i>
+                                </div>
+                                <div class="update-feedback"></div>
+                            </div>
+                        </div>
+                        <div class="text-muted small">
+                            Last updated: ${formatTimestamp(sensor.timestamp)}
+                        </div>
+                    </div>
+                `;
+                sensorGrid.appendChild(card);
+            });
+
+            root.appendChild(sensorGrid);
+        } catch (error) {
+            console.error('Error loading sensors:', error);
+            root.innerHTML = `
+                <div class="alert alert-error">
+                    Error loading sensors: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    // Add back your existing updateSleepTime and deleteSensor functions here
+    async function updateSleepTime(deviceId, sleepTime, selectElement) {
+        const wrapper = selectElement.closest('.sleep-time-wrapper');
+        const feedback = wrapper.querySelector('.update-feedback');
+        
+        wrapper.classList.add('loading');
+        selectElement.disabled = true;
+        feedback.textContent = '';
+        feedback.className = 'update-feedback';
+
+        try {
+            const response = await fetch('/api/set-sleep-time', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    device_id: deviceId,
+                    sleep_time: parseInt(sleepTime)
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                feedback.textContent = 'Sleep time updated successfully';
+                feedback.classList.add('show', 'success');
+                showMessage(`Updated sleep time for sensor ${deviceId}`);
+                await loadSensors();
+            } else {
+                throw new Error(data.message || 'Failed to update sleep time');
+            }
+        } catch (error) {
+            feedback.textContent = error.message;
+            feedback.classList.add('show', 'error');
+            console.error('Error:', error);
+        } finally {
+            wrapper.classList.remove('loading');
+            selectElement.disabled = false;
+        }
+    }
+
+    async function deleteSensor(deviceId) {
+        if (!confirm('Are you sure you want to delete this sensor?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/delete-sensor', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ device_id: deviceId })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showMessage('Sensor deleted successfully');
+                loadSensors();
+            } else {
+                throw new Error(data.message || 'Failed to delete sensor');
+            }
+        } catch (error) {
+            console.error('Error deleting sensor:', error);
+            showMessage(error.message || 'Error deleting sensor', 'error');
+        }
+    }
+
+    // WebSocket connection for real-time updates
+    const socket = io();
+    socket.on('mqtt_message', function(data) {
+        loadSensors();
+    });
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', loadSensors);
+</script>
+{% endblock %}

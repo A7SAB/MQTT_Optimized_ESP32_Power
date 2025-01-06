@@ -1,344 +1,169 @@
-{# templates/dashboard.html #}
 {% extends 'base.html' %}
 
-{% block head %}
-{{ super() }}
+{% block title %}Dashboard - SensorNet{% endblock %}
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-<script>
-    // Define all functions in global scope first
-    window.updateSleepTime = function(deviceId, button) {
-        const row = button.closest('tr');
-        const sleepTimeInput = row.querySelector('.sleep-time');
-        const sleepTime = parseInt(sleepTimeInput.value);
-        
-        if (!sleepTime || sleepTime < 1) {
-            alert('Please enter a valid sleep time (minimum 1 second)');
-            return;
-        }
+{% block header %}Dashboard Overview{% endblock %}
 
-        fetch('/api/set-sleep-time', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                device_id: deviceId,
-                sleep_time: sleepTime
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Sleep time updated successfully');
-            } else {
-                throw new Error(data.message || 'Update failed');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error updating sleep time: ' + error.message);
-        });
-    };
+{% block styles %}
 
-    window.deleteSensor = function(deviceId) {
-        if (confirm('Are you sure you want to remove this sensor?')) {
-            fetch('/api/delete-sensor', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    device_id: deviceId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    throw new Error(data.message || 'Delete failed');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error deleting sensor: ' + error.message);
-            });
-        }
-    };
+<style>
+/* Dashboard Layout */
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
 
-    window.resetDatabase = function() {
-        if (confirm('Are you sure you want to reset the database? This action cannot be undone.')) {
-            fetch('/api/reset-database', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Database reset successfully');
-                    location.reload();
-                } else {
-                    throw new Error(data.message || 'Reset failed');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error resetting database: ' + error.message);
-            });
-        }
-    };
+.stat-card {
+    background: var(--card-bg);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px var(--shadow-color);
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
 
-    // Initialize everything when the DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Socket.IO connection
-        const socket = io({
-            transports: ['websocket'],
-            reconnection: true,
-            reconnectionAttempts: 5
-        });
+.stat-card:hover {
+    background-color: #e6f7e9; /* Light green hover effect */
+    transform: translateY(-3px); /* Slight lift effect */
+}
 
-        function updateAverages() {
-            const rows = document.querySelectorAll('#sensors-table tbody tr');
-            let tempSum = 0;
-            let tempCount = 0;
-            let humidSum = 0;
-            let humidCount = 0;
+.stat-card h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color); /* Green text for numbers */
+    margin: 0 0 0.5rem 0;
+}
 
-            rows.forEach(row => {
-                const tempText = row.querySelector('.temp-value').textContent;
-                const humidText = row.querySelector('.humid-value').textContent;
-                
-                if (tempText !== 'N/A') {
-                    const tempValue = parseFloat(tempText);
-                    if (!isNaN(tempValue)) {
-                        tempSum += tempValue;
-                        tempCount++;
-                    }
-                }
-                if (humidText !== 'N/A') {
-                    const humidValue = parseFloat(humidText);
-                    if (!isNaN(humidValue)) {
-                        humidSum += humidValue;
-                        humidCount++;
-                    }
-                }
-            });
+.stat-card p {
+    color: var(--text-muted);
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
 
-            const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : '--';
-            const avgHumid = humidCount > 0 ? (humidSum / humidCount).toFixed(1) : '--';
-            
-            document.getElementById('avg-temp').textContent = `${avgTemp}°C`;
-            document.getElementById('avg-humid').textContent = `${avgHumid}%`;
-        }
+/* Dynamic Value Colors */
+.temp-value {
+    color: #ef4444; /* Red for temperature */
+    font-weight: 600;
+}
 
-        // Initialize averages on page load
-        updateAverages();
+.moisture-value {
+    color: #3b82f6; /* Blue for moisture */
+    font-weight: 600;
+}
 
-        // Handle incoming MQTT messages
-        socket.on('mqtt_message', function(data) {
-            console.log('Received message:', data);
-            
-            const sensorRow = document.querySelector(`tr[data-sensor-id="${data.device_id}"]`);
-            
-            if (!sensorRow) {
-                console.log('No matching sensor row found, reloading...');
-                location.reload();
-                return;
-            }
+/* Table Styles */
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
 
-            // Update sensor readings
-            if (data.topic.includes('Temperature')) {
-                const tempCell = sensorRow.querySelector('.temp-value');
-                if (tempCell) {
-                    tempCell.textContent = `${data.value}°C`;
-                }
-            } else if (data.topic.includes('Humidity')) {
-                const humidCell = sensorRow.querySelector('.humid-value');
-                if (humidCell) {
-                    humidCell.textContent = `${data.value}%`;
-                }
-            }
-            
-            // Update last seen timestamp
-            const timestampCell = sensorRow.querySelector('.last-update');
-            if (timestampCell) {
-                timestampCell.textContent = data.timestamp;
-            }
+.table th {
+    background: var(--table-header-bg);
+    padding: 1rem;
+    font-weight: 600;
+    text-align: left;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+}
 
-            // Update averages
-            updateAverages();
-            
-            // Add new reading to history table
-            const tbody = document.getElementById('readings-table');
-            const selectedSensor = document.getElementById('sensorSelect').value;
-            
-            if (selectedSensor === 'all' || selectedSensor === data.device_id) {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${data.device_id}</td>
-                    <td>${data.topic.split('/')[1]}</td>
-                    <td>${data.value}${data.topic.includes('Temperature') ? '°C' : '%'}</td>
-                    <td>${data.timestamp}</td>
-                `;
-                tbody.insertBefore(row, tbody.firstChild);
-                
-                // Keep only last 10 rows
-                while (tbody.children.length > 10) {
-                    tbody.removeChild(tbody.lastChild);
-                }
-            }
-        });
+.table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+}
 
-        // Add sensor select change handler
-        document.getElementById('sensorSelect').addEventListener('change', function() {
-            const selectedSensor = this.value;
-            fetch(`/api/get-readings?sensor=${selectedSensor}`)
-                .then(response => response.json())
-                .then(data => {
-                    const tbody = document.getElementById('readings-table');
-                    tbody.innerHTML = data.readings.map(reading => `
-                        <tr>
-                            <td>${reading.device_id}</td>
-                            <td>${reading.sensor_type}</td>
-                            <td>${reading.value}${reading.sensor_type === 'temperature' ? '°C' : '%'}</td>
-                            <td>${reading.timestamp}</td>
-                        </tr>
-                    `).join('');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error filtering readings: ' + error.message);
-                });
-        });
-    });
-</script>
+.table tbody tr:hover {
+    background-color: var(--table-row-hover);
+}
+
+/* Filter Controls */
+.filter-controls select {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    min-width: 200px;
+}
+
+.filter-controls select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    outline: none;
+}
+
+@media (max-width: 768px) {
+    .dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+</style>
 {% endblock %}
 
-
 {% block content %}
-<div class="main-content">
-    <header class="main-header">
-        <h1 class="header-title">Dashboard Overview</h1>
-        <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                Add Sensor
-            </button>
-        </div>
-    </header>
-
-    <!-- Stats Cards -->
+<div class="dashboard">
+    <!-- Stats Grid -->
     <div class="dashboard-stats">
-        <div class="card">
-            <div class="card-body">
-                <div class="stat-card-header">
-                    <span class="stat-card-title">Active Sensors</span>
-                    <i class="fas fa-satellite-dish"></i>
-                </div>
-                <div class="stat-card-value">{{ sensors|length }}</div>
-            </div>
+        <div class="stat-card">
+            <h3>{{ sensors|length }}</h3>
+            <p>Active Sensors</p>
         </div>
-
-        <div class="card">
-            <div class="card-body">
-                <div class="stat-card-header">
-                    <span class="stat-card-title">Average Temperature</span>
-                    <i class="fas fa-temperature-high"></i>
-                </div>
-                <div class="stat-card-value" id="avg-temp">--°C</div>
-            </div>
+        <div class="stat-card">
+            <h3 id="avg-temp">--°C</h3>
+            <p>Average Temperature</p>
         </div>
-
-        <div class="card">
-            <div class="card-body">
-                <div class="stat-card-header">
-                    <span class="stat-card-title">Average Humidity</span>
-                    <i class="fas fa-tint"></i>
-                </div>
-                <div class="stat-card-value" id="avg-humid">--%</div>
-            </div>
+        <div class="stat-card">
+            <h3 id="avg-moisture">--%</h3>
+            <p>Average Moisture</p>
         </div>
     </div>
 
-    <!-- Sensors Table -->
-    <div class="card">
+    <!-- Sensors Card -->
+    <div class="card sensor-card">
         <div class="card-header">
-            <h5>Registered Sensors</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table" id="sensors-table">
-                    <thead>
-                        <tr>
-                            <th>Sensor ID</th>
-                            <th>Temperature</th>
-                            <th>Humidity</th>
-                            <th>Last Update</th>
-                            <th>Sleep Time (s)</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for sensor in sensors %}
-                        <tr data-sensor-id="{{ sensor.device_id }}">
-                            <td>{{ sensor.device_id }}</td>
-                            <td class="temp-value">{{ sensor.temperature if sensor.temperature else 'N/A' }}{% if sensor.temperature %}°C{% endif %}</td>
-                            <td class="humid-value">{{ sensor.humidity if sensor.humidity else 'N/A' }}{% if sensor.humidity %}%{% endif %}</td>
-                            <td class="last-update">{{ sensor.last_update }}</td>
-                            <td>
-                                <input type="number" class="form-control sleep-time" value="{{ sensor.sleep_time }}" min="1">
-                            </td>
-                            <td>
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-primary btn-sm" onclick="updateSleepTime('{{ sensor.device_id }}', this)">
-                                        Update
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteSensor('{{ sensor.device_id }}')">
-                                        Remove
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <h2>Sensors</h2>
+            <div class="filter-controls">
+                <select id="locationFilter" class="form-select">
+                    <option value="">All Locations</option>
+                    {% for location in locations %}
+                    <option value="{{ location }}">{{ location }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
-    </div>
-
-    <!-- Readings History -->
-    <div class="card">
-        <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Sensor Readings History</h5>
-                <div class="d-flex gap-3 align-items-center">
-                    <select class="form-control" id="sensorSelect">
-                        <option value="all">All Sensors</option>
-                        {% for sensor in sensors %}
-                        <option value="{{ sensor.device_id }}">{{ sensor.device_id }}</option>
-                        {% endfor %}
-                    </select>
-                    <button class="btn btn-danger" onclick="resetDatabase()">Reset Database</button>
-                </div>
-            </div>
-        </div>
-        <div class="card-body">
-            <table class="table">
+        <div class="card-body table-responsive">
+            <table id="sensors-table" class="table">
                 <thead>
                     <tr>
-                        <th>Sensor ID</th>
-                        <th>Type</th>
-                        <th>Value</th>
-                        <th>Timestamp</th>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Temperature</th>
+                        <th>Moisture</th>
+                        <th>Last Update</th>
                     </tr>
                 </thead>
-                <tbody id="readings-table">
-                    {% for reading in latest_readings %}
-                    <tr>
-                        <td>{{ reading.device_id }}</td>
-                        <td>{{ reading.sensor_type }}</td>
-                        <td>{{ reading.value }}{% if reading.sensor_type == 'temperature' %}°C{% elif reading.sensor_type == 'humidity' %}%{% endif %}</td>
-                        <td>{{ reading.timestamp }}</td>
+                <tbody>
+                    {% for sensor in sensors %}
+                    <tr data-sensor-id="{{ sensor.device_id }}" data-location="{{ sensor.location }}">
+                        <td>{{ sensor.name }}</td>
+                        <td>{{ sensor.location }}</td>
+                        <td class="temp-value">{{ sensor.temperature|default('N/A') }}°C</td>
+                        <td class="moisture-value">{{ sensor.moisture|default('N/A') }}%</td>
+                        <td class="last-update">{{ sensor.last_update }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -348,3 +173,72 @@
 </div>
 {% endblock %}
 
+{% block scripts %}
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+    const socket = io();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Location filter functionality
+        document.getElementById('locationFilter').addEventListener('change', function() {
+            const location = this.value.toLowerCase();
+            document.querySelectorAll('#sensors-table tbody tr').forEach(row => {
+                const rowLocation = row.getAttribute('data-location').toLowerCase();
+                if (!location || rowLocation === location) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            updateAverages(); // Recalculate averages after filtering
+        });
+
+        // Real-time updates
+        socket.on('mqtt_message', function(data) {
+            const row = document.querySelector(`#sensors-table tbody tr[data-sensor-id="${data.device_id}"]`);
+            if (row) {
+                if (data.topic.includes('Temperature')) {
+                    row.querySelector('.temp-value').textContent = `${parseFloat(data.value).toFixed(1)}°C`;
+                } else if (data.topic.includes('Moisture')) {
+                    row.querySelector('.moisture-value').textContent = `${parseFloat(data.value).toFixed(1)}%`;
+                }
+                row.querySelector('.last-update').textContent = data.timestamp;
+            } else {
+                location.reload();
+            }
+            updateAverages(); // Recalculate averages after data update
+        });
+
+        // Calculate and update averages
+        function updateAverages() {
+            const visibleRows = Array.from(document.querySelectorAll('#sensors-table tbody tr'))
+                .filter(row => row.style.display !== 'none');
+
+            const temps = visibleRows
+                .map(row => parseFloat(row.querySelector('.temp-value').textContent.replace('°C', '').trim()))
+                .filter(val => !isNaN(val));
+
+            const moistures = visibleRows
+                .map(row => parseFloat(row.querySelector('.moisture-value').textContent.replace('%', '').trim()))
+                .filter(val => !isNaN(val));
+
+            if (temps.length > 0) {
+                const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
+                document.getElementById('avg-temp').textContent = `${avgTemp.toFixed(1)}°C`;
+            } else {
+                document.getElementById('avg-temp').textContent = '--°C';
+            }
+
+            if (moistures.length > 0) {
+                const avgMoisture = moistures.reduce((a, b) => a + b, 0) / moistures.length;
+                document.getElementById('avg-moisture').textContent = `${avgMoisture.toFixed(1)}%`;
+            } else {
+                document.getElementById('avg-moisture').textContent = '--%';
+            }
+        }
+
+        // Initial averages calculation
+        updateAverages();
+    });
+</script>
+{% endblock %}

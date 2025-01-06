@@ -1,7 +1,5 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
@@ -9,11 +7,13 @@
 #include "FS.h"
 #include <WebServer.h>
 #include <DNSServer.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 
 // WiFi credentials
-const char* ssid = "***";
-const char* password = "***";
+const char* ssid = "MH_EXT";
+const char* password = "MH19283746";
 
 // MQTT Broker settings
 const char* mqtt_server = "broker.hivemq.com";
@@ -21,15 +21,24 @@ const int mqtt_port = 1883;
 
 // MQTT Topics
 const char* MQTT_TOPIC_TEMP = "mynode/Temperature";
-const char* MQTT_TOPIC_HUM = "mynode/Humidity";
+const char* MQTT_TOPIC_HUM = "mynode/moisture";
 const char* MQTT_TOPIC_AUTH = "mynode/auth";
 const char* MQTT_TOPIC_ACK = "mynode/ack";
 const char* MQTT_TOPIC_SLEEP = "mynode/default/config/sleep";
 
-// DHT Sensor settings
-#define DHTPIN 2
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
+// LED Pin
+const int ledPin = 8;
+
+// Soil Moisture Sensor
+int _moisture, sensor_analog;
+const int sensor_pin = A1;  
+
+
+// DS18B20 Temperature Sensor
+const int oneWireBus = A2;     // GPIO where the DS18B20 is connected to
+OneWire oneWire(oneWireBus);
+DallasTemperature sensors(&oneWire);
+
 
 // States
 enum State {
@@ -114,7 +123,6 @@ void handleCallback(char* topic, byte* payload, unsigned int length) {
     }
 
     String topicStr = String(topic);
-    
     // Handle authentication response
     if (topicStr == MQTT_TOPIC_AUTH) {
         if (doc.containsKey("status") && doc["status"] == "approved") {
@@ -125,7 +133,7 @@ void handleCallback(char* topic, byte* payload, unsigned int length) {
     }
     // Handle sleep time response
     else if (topicStr == MQTT_TOPIC_SLEEP) {
-        if (doc.containsKey("sleep_time")) {
+        if (doc.containsKey("sleep_time") && doc["device_id"] == deviceId) {
             uint32_t newSleepTime = doc["sleep_time"];
             if (newSleepTime > 0) {
                 sleepDuration = newSleepTime;
@@ -181,25 +189,29 @@ void requestAuthentication() {
 void publishSensorData() {
     if (dataSent) return;
 
-    float temperature = dht.readTemperature();
-    float humidity = dht.readHumidity();
+    delay(1000);
+    sensor_analog = analogRead(sensor_pin);
+    _moisture = (100 - ((sensor_analog / 4095.0) * 100));
     
-    if (isnan(temperature) || isnan(humidity)) {
-        Serial.println("[ERROR] Failed to read DHT sensor!");
+    sensors.requestTemperatures(); 
+    float temperature = sensors.getTempCByIndex(0);
+    
+    if (temperature == -127.00) {
+        Serial.println("[ERROR] Failed to read Temperature Sensor!");
         return;
     }
 
     StaticJsonDocument<200> doc;
     doc["device_id"] = deviceId;
     doc["temperature"] = temperature;
-    doc["humidity"] = humidity;
+    doc["moisture"] = _moisture;
 
     char jsonBuffer[200];
     serializeJson(doc, jsonBuffer);
     
-    if (mqtt.publish(MQTT_TOPIC_TEMP, jsonBuffer) && 
+     if (mqtt.publish(MQTT_TOPIC_TEMP, jsonBuffer) && 
         mqtt.publish(MQTT_TOPIC_HUM, jsonBuffer)) {
-        Serial.printf("[DATA] Published - T: %.1f°C, H: %.1f%%\n", temperature, humidity);
+        Serial.printf("[DATA] Published - T: %.1f°C, H: %.1f%%\n", temperature, _moisture);
         dataSent = true;
         setState(STATE_WAIT_ACK);
     } else {
@@ -211,9 +223,9 @@ void setup() {
     Serial.begin(115200);
     delay(100);
     Serial.println("\n[INIT] Starting ESP32 Sensor Node");
+    pinMode(ledPin, OUTPUT);
     
     startTime = millis();
-    dht.begin();
     preferences.begin("sensor", false);
     
     // Load saved sleep duration
@@ -283,3 +295,4 @@ void loop() {
             break;
     }
 }
+
