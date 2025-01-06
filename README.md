@@ -9,8 +9,9 @@ Welcome to the **MQTT Optimized ESP32 Power** project repository! This repositor
 This project demonstrates an MQTT-based system using an ESP32 microcontroller and a DHT11 sensor for measuring humidity and temperature. The goal is to develop an efficient and interactive IoT solution.
 
 ### **Features**
-- **ESP32 Integration**: Low-power consumption with optimized operations.
-- **DHT11 Sensor**: Real-time monitoring of humidity and temperature.
+- Low-power consumption with optimized operations.
+- Real-time monitoring of soil moisture and soil temperature.
+- Water management system with pump integration.
 
 ---
 
@@ -78,7 +79,9 @@ Password: admin123
 
 ## **Future Enhancements**
 Here are some features we're working on:
-- **Full Web Interface**: Add user-friendly features like login pages and dashboards.
-- **Sensors Manging dashboard**: Adjust Each sensor sleeping time
+- Optimized Notification system.
+- Web Manager for Sensors. 
+- Improved web design. 
+
 ---
 
