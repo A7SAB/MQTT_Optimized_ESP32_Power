@@ -80,7 +80,7 @@ Password: admin123
 
 ## **Future Enhancements**
 Here are some features we're working on:
-- **Notification Manger**: Adding the ability to manager the notfications. 
+- **Notification Manger**: Adding the ability to manage the notfications. 
 - **WIFI Manager**: to make the connectivity more user friendly. 
 ---
 
