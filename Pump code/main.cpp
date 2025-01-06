@@ -21,8 +21,8 @@ const uint32_t MQTT_RETRY_DELAY = 5000;    // MQTT reconnection delay (ms)
 const uint32_t ULTRASONIC_TIMEOUT = 30000; // Ultrasonic reading timeout (µs)
 
 // WiFi Configuration
-const char* WIFI_SSID = "YOUR WIFI SSID";
-const char* WIFI_PASS = "YOUR PASSWORD";
+const char* WIFI_SSID = "MH_EXT";
+const char* WIFI_PASS = "MH19283746";
 
 // MQTT Configuration
 const char* MQTT_SERVER = "broker.hivemq.com";
