@@ -259,6 +259,7 @@ def discovery():
     
 
 @app.route('/pump')
+@login_required
 def pump_management():
     return render_template('pump_management.html')
 
