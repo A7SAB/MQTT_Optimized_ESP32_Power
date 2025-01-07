@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "Final_Sensor",
+			"path": "../../PlatformIO/Projects/Final_Sensor"
+		}
+	],
+	"settings": {}
+}

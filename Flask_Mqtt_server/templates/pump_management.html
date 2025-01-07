@@ -456,58 +456,6 @@ function loadRuleHistory() {
         });
 }
 
-// Update rule form submission
-document.getElementById('ruleForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    if (!currentPump) {
-        alert('Please select a pump first');
-        return;
-    }
-    
-    const formData = new FormData(this);
-    const data = {
-        sensor_id: formData.get('sensor_id'),
-        reading_type: formData.get('reading_type'),
-        comparison_type: formData.get('comparison_type'),
-        threshold_value: parseFloat(formData.get('threshold_value')),
-        action: formData.get('action'),
-        duration: parseInt(formData.get('duration'))
-    };
-    
-    // Validation
-    if (isNaN(data.threshold_value) || isNaN(data.duration)) {
-        alert('Please enter valid numbers for threshold and duration');
-        return;
-    }
-    
-    if (data.duration < 1 || data.duration > 120) {
-        alert('Duration must be between 1 and 120 minutes');
-        return;
-    }
-    
-    fetch(`/api/pump/${currentPump}/rules`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.error) throw new Error(result.error);
-        this.reset();
-        // Reset the unit display
-        document.querySelector('.sensor-unit').textContent = '°C';
-        loadRules();
-        alert('Rule added successfully!');
-    })
-    .catch(error => {
-        console.error('Error adding rule:', error);
-        alert('Error adding rule: ' + error.message);
-    });
-});
-
 
 // Add event listener for rule form
 document.getElementById('ruleForm').addEventListener('submit', function(e) {
@@ -1136,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkPendingPumps();
     
     // Set up periodic updates
-    setInterval(checkPendingPumps, 5000);
+    setInterval(checkPendingPumps, 2000);
     setInterval(() => {
         if (currentPump) {
             updatePumpStatus();

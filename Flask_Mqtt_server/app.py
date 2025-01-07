@@ -429,6 +429,9 @@ def check_pump_rules(sensor_id, reading_type, value):
                 should_trigger = value < rule['threshold_value']
 
             if should_trigger:
+                # Log rule evaluation
+                print(f"[RULE TRIGGERED] Rule ID: {rule['id']} - Sensor ID: {sensor_id} - Value: {value}")
+
                 # Record the action
                 cursor.execute('''
                     INSERT INTO rule_actions (
@@ -436,10 +439,53 @@ def check_pump_rules(sensor_id, reading_type, value):
                     ) VALUES (?, ?, ?)
                 ''', (rule['id'], value, rule['action']))
 
-                # Control the pump
-                control_pump(rule['pump_id'], rule['action'], rule['duration'])
+                # Update pump status in database
+                cursor.execute('''
+                    UPDATE pumps 
+                    SET is_running = TRUE,
+                        last_update = CURRENT_TIMESTAMP 
+                    WHERE pump_id = ?
+                ''', (rule['pump_id'],))
 
+                conn.commit()
+
+                # Control the pump - Turn ON
+                control_msg = {
+                    'device_id': rule['pump_id'],
+                    'command': 'on',
+                    'timestamp': datetime.now().isoformat()
+                }
+
+                # Publish to MQTT in the required format
+                topic = f'mynode/{rule["pump_id"]}/control'
+                print(f"[MQTT] Publishing ON command to topic: {topic}, Message: {control_msg}")
+                mqtt.publish(topic, json.dumps(control_msg), qos=1)
+
+                # Schedule the turn OFF command
+                duration = rule['duration'] * 60  # Convert to seconds
+                timer = threading.Timer(duration, turn_off_pump, [rule['pump_id']])
+                timer.start()
+                print(f"[TIMER] Turn OFF scheduled for pump {rule['pump_id']} in {duration} seconds.")
+
+
+def turn_off_pump(pump_id):
+    """Turn off the pump after rule duration ends."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE pumps 
+            SET is_running = FALSE,
+                last_update = CURRENT_TIMESTAMP 
+            WHERE pump_id = ?
+        ''', (pump_id,))
         conn.commit()
+
+    off_msg = {
+        'device_id': pump_id,
+        'command': 'off',
+        'timestamp': datetime.now().isoformat()
+    }
+    mqtt.publish(f'mynode/pump_control', json.dumps(off_msg), qos=1)
 
 
 @app.route('/api/delete-sensor', methods=['POST'])
@@ -720,7 +766,8 @@ def handle_sensor_data(topic, device_id, data):
             conn.commit()
 
         #Check the preset rules by the user 
-        check_pump_rules(device_id, float(value))
+        print(f"[SENSOR] Calling check_pump_rules for {device_id}, Type: {sensor_type}, Value: {value}")
+        check_pump_rules(device_id, sensor_type, float(value))
 
 
         # Send acknowledgment
