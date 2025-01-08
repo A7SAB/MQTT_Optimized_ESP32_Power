@@ -412,72 +412,173 @@ def get_rule_history(pump_id):
 
 # Add function to check sensor readings against rules
 def check_pump_rules(sensor_id, reading_type, value):
+    """
+    Evaluate active pump rules for a given sensor reading and possibly
+    turn a pump on or off, respecting the conditions below:
+
+      - If pump is already ON and an 'on' command is triggered: ignore & record error.
+      - If pump is ON and an 'off' command is triggered: turn OFF immediately (no scheduling).
+      - If pump is OFF and the water level is below 10%: ignore & record error if 'on' is requested.
+      - If an 'off' command is triggered, do so immediately (absolute off, no time scheduling).
+
+    sensor_id: The ID of the sensor location (device_id) that triggered the rule.
+    reading_type: e.g., "water_level", "temperature", etc.
+    value: Numeric sensor value.
+    """
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # Find all active rules matching sensor_id, reading_type
         cursor.execute('''
-            SELECT * FROM pump_rules 
-            WHERE sensor_id = ? 
-            AND reading_type = ?
-            AND is_active = TRUE
+            SELECT * FROM pump_rules
+            WHERE sensor_id = ?
+              AND reading_type = ?
+              AND is_active = TRUE
         ''', (sensor_id, reading_type))
         rules = cursor.fetchall()
 
         for rule in rules:
-            should_trigger = False
+            # Determine if rule should trigger
             if rule['comparison_type'] == 'above':
                 should_trigger = value > rule['threshold_value']
             else:
                 should_trigger = value < rule['threshold_value']
 
-            if should_trigger:
-                # Log rule evaluation
-                print(f"[RULE TRIGGERED] Rule ID: {rule['id']} - Sensor ID: {sensor_id} - Value: {value}")
+            if not should_trigger:
+                # If the condition isn't met, do nothing for this rule
+                continue
+
+            # Rule triggered: log evaluation
+            print(f"[RULE TRIGGERED] Rule ID: {rule['id']} - Sensor ID: {sensor_id} - Value: {value}")
+
+            # ------------------------------------------------------------------
+            # 1) Fetch the current pump status from DB
+            # ------------------------------------------------------------------
+            cursor.execute('''
+                SELECT is_running
+                  FROM pumps
+                 WHERE pump_id = ?
+            ''', (rule['pump_id'],))
+            pump_row = cursor.fetchone()
+
+            # If pump not found or invalid, continue or handle as error
+            if not pump_row:
+                print(f"[ERROR] Pump {rule['pump_id']} not found in DB.")
+                continue
+
+            is_running = pump_row['is_running']  # Boolean: True/False
+
+            # ------------------------------------------------------------------
+            # 2) Check the rule action: 'on' or 'off'
+            # ------------------------------------------------------------------
+            if rule['action'] == 'on':
+                # Condition A: Pump already ON?
+                if is_running:
+                    # Record error: pump is already ON, ignoring turn-on command
+                    print(f"[ERROR] Pump {rule['pump_id']} is already ON. Ignoring turn-on command.")
+                    cursor.execute('''
+                        INSERT INTO rule_actions (rule_id, sensor_value, action_taken)
+                        VALUES (?, ?, ?)
+                    ''', (rule['id'], value, 'error: pump_already_on'))
+                    conn.commit()
+                    continue
+
+                # Condition B: Pump is OFF, but water level < 10%?
+                # (Assuming reading_type == "water_level" and we treat < 10 as <10%)
+                # Adjust the numeric threshold as needed for your logic.
+                if reading_type.lower() == 'water_level' and value < 10:
+                    print(f"[ERROR] Water level too low ({value}%). Ignoring turn-on command for pump {rule['pump_id']}.")
+                    cursor.execute('''
+                        INSERT INTO rule_actions (rule_id, sensor_value, action_taken)
+                        VALUES (?, ?, ?)
+                    ''', (rule['id'], value, 'error: water_level_too_low'))
+                    conn.commit()
+                    continue
+
+                # Otherwise, turn pump ON & schedule turn OFF if a duration is set
+                print(f"Turning ON pump {rule['pump_id']}")
 
                 # Record the action
                 cursor.execute('''
-                    INSERT INTO rule_actions (
-                        rule_id, sensor_value, action_taken
-                    ) VALUES (?, ?, ?)
-                ''', (rule['id'], value, rule['action']))
-
-                # Update pump status in database
+                    INSERT INTO rule_actions (rule_id, sensor_value, action_taken)
+                    VALUES (?, ?, ?)
+                ''', (rule['id'], value, 'on'))
+                
+                # Update pump status
                 cursor.execute('''
-                    UPDATE pumps 
-                    SET is_running = TRUE,
-                        last_update = CURRENT_TIMESTAMP 
-                    WHERE pump_id = ?
+                    UPDATE pumps
+                       SET is_running = TRUE,
+                           last_update = CURRENT_TIMESTAMP
+                     WHERE pump_id = ?
                 ''', (rule['pump_id'],))
-
                 conn.commit()
 
-                # Control the pump - Turn ON
+                # Publish ON command
                 control_msg = {
                     'device_id': rule['pump_id'],
                     'command': 'on',
                     'timestamp': datetime.now().isoformat()
                 }
-
-                # Publish to MQTT in the required format
                 topic = f'mynode/{rule["pump_id"]}/control'
                 print(f"[MQTT] Publishing ON command to topic: {topic}, Message: {control_msg}")
                 mqtt.publish(topic, json.dumps(control_msg), qos=1)
 
-                # Schedule the turn OFF command
-                duration = rule['duration'] * 60  # Convert to seconds
-                timer = threading.Timer(duration, turn_off_pump, [rule['pump_id']])
-                timer.start()
-                print(f"[TIMER] Turn OFF scheduled for pump {rule['pump_id']} in {duration} seconds.")
+                # Schedule turn OFF after duration (in minutes)
+                # Only schedule if the duration > 0. If you prefer to always schedule, remove the check.
+                if rule['duration'] > 0:
+                    duration_seconds = rule['duration'] * 60
+                    timer = threading.Timer(duration_seconds, turn_off_pump, [rule['pump_id']])
+                    timer.start()
+                    print(f"[TIMER] Turn OFF scheduled for pump {rule['pump_id']} in {duration_seconds} seconds.")
+            
+            elif rule['action'] == 'off':
+                # If the pump is already OFF, there's nothing to do
+                if not is_running:
+                    
+                    #print(f"Pump {rule['pump_id']} is already OFF. Ignoring turn-off command.")
+                    # Optionally record an error or an info action
+                    #cursor.execute('''
+                     #   INSERT INTO rule_actions (rule_id, sensor_value, action_taken)
+                      #  VALUES (?, ?, ?)
+                    #''', (rule['id'], value, 'info: pump_already_off'))
+                    #conn.commit()
+                    
+                    continue
 
+                # If the pump is ON, turn it off immediately (no scheduling)
+                print(f"Turning OFF pump {rule['pump_id']} immediately.")
+                cursor.execute('''
+                    INSERT INTO rule_actions (rule_id, sensor_value, action_taken)
+                    VALUES (?, ?, ?)
+                ''', (rule['id'], value, 'off'))
+                cursor.execute('''
+                    UPDATE pumps
+                       SET is_running = FALSE,
+                           last_update = CURRENT_TIMESTAMP
+                     WHERE pump_id = ?
+                ''', (rule['pump_id'],))
+                conn.commit()
+
+                off_msg = {
+                    'device_id': rule['pump_id'],
+                    'command': 'off',
+                    'timestamp': datetime.now().isoformat()
+                }
+                # Publish OFF command (absolute off)
+                mqtt.publish(f'mynode/pump_control', json.dumps(off_msg), qos=1)
+
+            # If other actions or logic exist, handle them here.
+            # End of for-loop (rules)
 
 def turn_off_pump(pump_id):
-    """Turn off the pump after rule duration ends."""
+    """Turn off the pump after the scheduled duration ends."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute('''
-            UPDATE pumps 
-            SET is_running = FALSE,
-                last_update = CURRENT_TIMESTAMP 
-            WHERE pump_id = ?
+            UPDATE pumps
+               SET is_running = FALSE,
+                   last_update = CURRENT_TIMESTAMP
+             WHERE pump_id = ?
         ''', (pump_id,))
         conn.commit()
 
@@ -486,7 +587,9 @@ def turn_off_pump(pump_id):
         'command': 'off',
         'timestamp': datetime.now().isoformat()
     }
+    # Publish an OFF command to the relevant MQTT topic
     mqtt.publish(f'mynode/pump_control', json.dumps(off_msg), qos=1)
+    print(f"[TIMER] Pump {pump_id} turned off after scheduled duration.")
 
 
 @app.route('/api/delete-sensor', methods=['POST'])
