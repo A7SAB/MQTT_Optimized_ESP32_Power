@@ -1,244 +1,250 @@
-{% extends 'base.html' %}
+    {% extends 'base.html' %}
 
-{% block title %}Dashboard - SensorNet{% endblock %}
+    {% block title %}Dashboard - SensorNet{% endblock %}
 
-{% block header %}Dashboard Overview{% endblock %}
+    {% block header %}Dashboard Overview{% endblock %}
 
-{% block styles %}
+    {% block styles %}
 
-<style>
-/* Dashboard Layout */
-.dashboard-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-}
+    <style>
+    /* Dashboard Layout */
+    .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
 
-.stat-card {
-    background: var(--card-bg);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
-    text-align: center;
-    transition: all 0.3s ease-in-out;
-}
+    .stat-card {
+        background: var(--card-bg);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px var(--shadow-color);
+        text-align: center;
+        transition: all 0.3s ease-in-out;
+    }
 
-.stat-card:hover {
-    background-color: #e6f7e9; /* Light green hover effect */
-    transform: translateY(-3px); /* Slight lift effect */
-}
+    .stat-card:hover {
+        background-color: #e6f7e9; /* Light green hover effect */
+        transform: translateY(-3px); /* Slight lift effect */
+    }
 
-.stat-card h3 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary-color); /* Green text for numbers */
-    margin: 0 0 0.5rem 0;
-}
+    .stat-card h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color); /* Green text for numbers */
+        margin: 0 0 0.5rem 0;
+    }
 
-.stat-card p {
-    color: var(--text-muted);
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
+    .stat-card p {
+        color: var(--text-muted);
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
 
-/* Dynamic Value Colors */
-.temp-value {
-    color: #ef4444; /* Red for temperature */
-    font-weight: 600;
-}
+    /* Dynamic Value Colors */
+    .temp-value {
+        color: #ef4444; /* Red for temperature */
+        font-weight: 600;
+    }
 
-.moisture-value {
-    color: #3b82f6; /* Blue for moisture */
-    font-weight: 600;
-}
+    .moisture-value {
+        color: #3b82f6; /* Blue for moisture */
+        font-weight: 600;
+    }
 
-/* Table Styles */
-.table {
+    /* Table Styles */
+    .table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-}
+    }
 
-.table th {
-    background: var(--table-header-bg);
-    padding: 1rem;
-    font-weight: 600;
-    text-align: left;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border-color);
-}
+    /* Header cells */
+    .table th {
+        background: var(--table-header-bg);
+        padding: 1rem;
+        font-weight: 600;
+        text-align: left;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color);
+    }
 
-.table td {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-color);
-}
+    /* Body cells */
+    .table td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-color);
+    }
 
-.table tbody tr:hover {
-    background-color: var(--table-row-hover);
-}
-
-/* Filter Controls */
-.filter-controls select {
+    /* Hover state */
+    .table tbody tr {
     background-color: var(--card-bg);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    min-width: 200px;
-}
-
-.filter-controls select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-    outline: none;
-}
-
-@media (max-width: 768px) {
-    .dashboard-stats {
-        grid-template-columns: 1fr;
     }
 
-    .filter-controls {
-        flex-direction: column;
+    .table tbody tr:hover {
+    background-color: var(--table-row-hover);
+    }
+    /* Filter Controls */
+    .filter-controls select {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        min-width: 200px;
     }
 
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .filter-controls select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        outline: none;
     }
-}
-</style>
-{% endblock %}
 
-{% block content %}
-<div class="dashboard">
-    <!-- Stats Grid -->
-    <div class="dashboard-stats">
-        <div class="stat-card">
-            <h3>{{ sensors|length }}</h3>
-            <p>Active Sensors</p>
-        </div>
-        <div class="stat-card">
-            <h3 id="avg-temp">--°C</h3>
-            <p>Average Temperature</p>
-        </div>
-        <div class="stat-card">
-            <h3 id="avg-moisture">--%</h3>
-            <p>Average Moisture</p>
-        </div>
-    </div>
-
-    <!-- Sensors Card -->
-    <div class="card sensor-card">
-        <div class="card-header">
-            <h2>Sensors</h2>
-            <div class="filter-controls">
-                <select id="locationFilter" class="form-select">
-                    <option value="">All Locations</option>
-                    {% for location in locations %}
-                    <option value="{{ location }}">{{ location }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        <div class="card-body table-responsive">
-            <table id="sensors-table" class="table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Temperature</th>
-                        <th>Moisture</th>
-                        <th>Last Update</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for sensor in sensors %}
-                    <tr data-sensor-id="{{ sensor.device_id }}" data-location="{{ sensor.location }}">
-                        <td>{{ sensor.name }}</td>
-                        <td>{{ sensor.location }}</td>
-                        <td class="temp-value">{{ sensor.temperature|default('N/A') }}°C</td>
-                        <td class="moisture-value">{{ sensor.moisture|default('N/A') }}%</td>
-                        <td class="last-update">{{ sensor.last_update }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-<script>
-    const socket = io();
-
-    document.addEventListener('DOMContentLoaded', function() {
-        // Location filter functionality
-        document.getElementById('locationFilter').addEventListener('change', function() {
-            const location = this.value.toLowerCase();
-            document.querySelectorAll('#sensors-table tbody tr').forEach(row => {
-                const rowLocation = row.getAttribute('data-location').toLowerCase();
-                if (!location || rowLocation === location) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-            updateAverages(); // Recalculate averages after filtering
-        });
-
-        // Real-time updates
-        socket.on('mqtt_message', function(data) {
-            const row = document.querySelector(`#sensors-table tbody tr[data-sensor-id="${data.device_id}"]`);
-            if (row) {
-                if (data.topic.includes('Temperature')) {
-                    row.querySelector('.temp-value').textContent = `${parseFloat(data.value).toFixed(1)}°C`;
-                } else if (data.topic.includes('Moisture')) {
-                    row.querySelector('.moisture-value').textContent = `${parseFloat(data.value).toFixed(1)}%`;
-                }
-                row.querySelector('.last-update').textContent = data.timestamp;
-            } else {
-                location.reload();
-            }
-            updateAverages(); // Recalculate averages after data update
-        });
-
-        // Calculate and update averages
-        function updateAverages() {
-            const visibleRows = Array.from(document.querySelectorAll('#sensors-table tbody tr'))
-                .filter(row => row.style.display !== 'none');
-
-            const temps = visibleRows
-                .map(row => parseFloat(row.querySelector('.temp-value').textContent.replace('°C', '').trim()))
-                .filter(val => !isNaN(val));
-
-            const moistures = visibleRows
-                .map(row => parseFloat(row.querySelector('.moisture-value').textContent.replace('%', '').trim()))
-                .filter(val => !isNaN(val));
-
-            if (temps.length > 0) {
-                const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
-                document.getElementById('avg-temp').textContent = `${avgTemp.toFixed(1)}°C`;
-            } else {
-                document.getElementById('avg-temp').textContent = '--°C';
-            }
-
-            if (moistures.length > 0) {
-                const avgMoisture = moistures.reduce((a, b) => a + b, 0) / moistures.length;
-                document.getElementById('avg-moisture').textContent = `${avgMoisture.toFixed(1)}%`;
-            } else {
-                document.getElementById('avg-moisture').textContent = '--%';
-            }
+    @media (max-width: 768px) {
+        .dashboard-stats {
+            grid-template-columns: 1fr;
         }
 
-        // Initial averages calculation
-        updateAverages();
-    });
-</script>
-{% endblock %}
+        .filter-controls {
+            flex-direction: column;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+    </style>
+    {% endblock %}
+
+    {% block content %}
+    <div class="dashboard">
+        <!-- Stats Grid -->
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <h3>{{ sensors|length }}</h3>
+                <p>Active Sensors</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="avg-temp">--°C</h3>
+                <p>Average Temperature</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="avg-moisture">--%</h3>
+                <p>Average Moisture</p>
+            </div>
+        </div>
+
+        <!-- Sensors Card -->
+        <div class="card sensor-card">
+            <div class="card-header">
+                <h2>Sensors</h2>
+                <div class="filter-controls">
+                    <select id="locationFilter" class="form-select">
+                        <option value="">All Locations</option>
+                        {% for location in locations %}
+                        <option value="{{ location }}">{{ location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="card-body table-responsive">
+                <table id="sensors-table" class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Temperature</th>
+                            <th>Moisture</th>
+                            <th>Last Update</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sensor in sensors %}
+                        <tr data-sensor-id="{{ sensor.device_id }}" data-location="{{ sensor.location }}">
+                            <td>{{ sensor.name }}</td>
+                            <td>{{ sensor.location }}</td>
+                            <td class="temp-value">{{ sensor.temperature|default('N/A') }}°C</td>
+                            <td class="moisture-value">{{ sensor.moisture|default('N/A') }}%</td>
+                            <td class="last-update">{{ sensor.last_update }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Location filter functionality
+            document.getElementById('locationFilter').addEventListener('change', function() {
+                const location = this.value.toLowerCase();
+                document.querySelectorAll('#sensors-table tbody tr').forEach(row => {
+                    const rowLocation = row.getAttribute('data-location').toLowerCase();
+                    if (!location || rowLocation === location) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                updateAverages(); // Recalculate averages after filtering
+            });
+
+            // Real-time updates
+            socket.on('mqtt_message', function(data) {
+                const row = document.querySelector(`#sensors-table tbody tr[data-sensor-id="${data.device_id}"]`);
+                if (row) {
+                    if (data.topic.includes('Temperature')) {
+                        row.querySelector('.temp-value').textContent = `${parseFloat(data.value).toFixed(1)}°C`;
+                    } else if (data.topic.includes('Moisture')) {
+                        row.querySelector('.moisture-value').textContent = `${parseFloat(data.value).toFixed(1)}%`;
+                    }
+                    row.querySelector('.last-update').textContent = data.timestamp;
+                } else {
+                    location.reload();
+                }
+                updateAverages(); // Recalculate averages after data update
+            });
+
+            // Calculate and update averages
+            function updateAverages() {
+                const visibleRows = Array.from(document.querySelectorAll('#sensors-table tbody tr'))
+                    .filter(row => row.style.display !== 'none');
+
+                const temps = visibleRows
+                    .map(row => parseFloat(row.querySelector('.temp-value').textContent.replace('°C', '').trim()))
+                    .filter(val => !isNaN(val));
+
+                const moistures = visibleRows
+                    .map(row => parseFloat(row.querySelector('.moisture-value').textContent.replace('%', '').trim()))
+                    .filter(val => !isNaN(val));
+
+                if (temps.length > 0) {
+                    const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
+                    document.getElementById('avg-temp').textContent = `${avgTemp.toFixed(1)}°C`;
+                } else {
+                    document.getElementById('avg-temp').textContent = '--°C';
+                }
+
+                if (moistures.length > 0) {
+                    const avgMoisture = moistures.reduce((a, b) => a + b, 0) / moistures.length;
+                    document.getElementById('avg-moisture').textContent = `${avgMoisture.toFixed(1)}%`;
+                } else {
+                    document.getElementById('avg-moisture').textContent = '--%';
+                }
+            }
+
+            // Initial averages calculation
+            updateAverages();
+        });
+    </script>
+    {% endblock %}

@@ -1,334 +1,411 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SensorNet{% endblock %}</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-    {% block styles %}{% endblock %}
-    <style>
-        /* Theme Variables */
-        :root {
-            /* Light Theme */
-            --primary-color: #6366f1;
-            --primary-hover: #4f46e5;
-            --danger-color: #ef4444;
-            --danger-hover: #dc2626;
-            --sidebar-width: 250px;
-            --header-height: 60px;
-            
-            /* Light Theme Colors */
-            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            --bg-sidebar: #ffffff;
-            --border-color: #e2e8f0;
-            --text-color: #1e293b;
-            --text-muted: #64748b;
-            --nav-hover: #f1f5f9;
-            --card-bg: #ffffff;
-            --shadow-color: rgba(0, 0, 0, 0.1);
-            --table-header-bg: #f8fafc;
-            --table-row-hover: #f1f5f9;
-            --table-border: #e2e8f0;
-        }
+  <meta charset="UTF-8" />
+  <!-- Make sure the viewport is set for mobile devices -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SensorNet{% endblock %}</title>
 
-        /* Dark Theme */
-        [data-theme="dark"] {
-            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            --bg-sidebar: #1e293b;
-            --border-color: #334155;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --nav-hover: #334155;
-            --card-bg: #1e293b;
-            --shadow-color: rgba(0, 0, 0, 0.3);
-            --table-header-bg: #1e293b;
-            --table-row-hover: #334155;
-            --table-border: #334155;
-        }
+  <!-- Fonts & Icons -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    rel="stylesheet"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
 
-        * {
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-        }
+  <!-- Bootstrap -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
 
-        body {
-            background: var(--bg-gradient);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            color: var(--text-color);
-            min-height: 100vh;
-            padding-left: var(--sidebar-width);
-            margin: 0;
-        }
+  {% block styles %}{% endblock %}
 
-        /* Sidebar Styles */
-        .sidebar {
-            width: var(--sidebar-width);
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 1030;
-        }
+  <style>
+    /* Theme Variables */
+    :root {
+      /* Light Theme */
+      --primary-color: #6366f1;
+      --primary-hover: #4f46e5;
+      --danger-color: #ef4444;
+      --danger-hover: #dc2626;
+      --sidebar-width: 250px;
+      --header-height: 60px;
 
-        .sidebar-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-        }
+      /* Light Theme Colors */
+      --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      --bg-sidebar: #ffffff;
+      --border-color: #e2e8f0;
+      --text-color: #1e293b;
+      --text-muted: #64748b;
+      --nav-hover: #f1f5f9;
+      --card-bg: #ffffff;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --table-header-bg: #f8fafc;
+      --table-row-hover: #f1f5f9;
+      --table-border: #e2e8f0;
+    }
 
-        .sidebar-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+    /* Dark Theme */
+    [data-theme="dark"] {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      --bg-sidebar: #1e293b;
+      --border-color: #334155;
+      --text-color: #f1f5f9;
+      --text-muted: #94a3b8;
+      --nav-hover: #334155;
+      --card-bg: #1e293b;
+      --shadow-color: rgba(0, 0, 0, 0.3);
+      --table-header-bg: #1e293b;
+      --table-row-hover: #334155;
+      --table-border: #334155;
+    }
 
-        .sidebar-nav {
-            padding: 1rem;
-        }
+    * {
+      transition: background-color 0.3s ease, color 0.3s ease,
+        border-color 0.3s ease;
+    }
 
-        .sidebar-nav .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: var(--text-color);
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-            transition: all 0.2s ease;
-        }
+    body {
+      background: var(--bg-gradient);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, sans-serif;
+      color: var(--text-color);
+      min-height: 100vh;
+      padding-left: var(--sidebar-width);
+      margin: 0;
+    }
 
-        .sidebar-nav .nav-link:hover {
-            background: var(--nav-hover);
-            transform: translateX(4px);
-        }
+    /* Sidebar Styles */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1030;
+      transition: transform 0.3s ease;
+    }
 
-        .sidebar-nav .nav-link.active {
-            background: var(--primary-color);
-            color: white;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
-        }
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
 
-        /* Main Content */
-        .content-wrapper {
-            padding: calc(var(--header-height) + 2rem) 2rem 2rem;
-            margin-left: 0;
-        }
+    .sidebar-brand {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-color);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
 
-        /* Header */
-        .main-header {
-            position: fixed;
-            top: 0;
-            right: 0;
-            left: var(--sidebar-width);
-            height: var(--header-height);
-            background: rgba(var(--card-bg), 0.8);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 1020;
-        }
+    .sidebar-nav {
+      padding: 1rem;
+    }
 
-        /* Cards */
-        .card {
-            background: var(--card-bg);
-            border: none;
-            border-radius: 1rem;
-            box-shadow: 0 1px 3px var(--shadow-color);
-            margin-bottom: 1.5rem;
-        }
+    .sidebar-nav .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--text-color);
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      transition: all 0.2s ease;
+    }
 
-        .card-header {
-            background: transparent;
-            border-bottom: 1px solid var(--border-color);
-            padding: 1.5rem;
-            border-radius: 1rem 1rem 0 0 !important;
-        }
+    .sidebar-nav .nav-link:hover {
+      background: var(--nav-hover);
+      transform: translateX(4px);
+    }
 
-        /* Tables */
-        .table {
-            color: var(--text-color);
-            margin: 0;
-        }
+    .sidebar-nav .nav-link.active {
+      background: var(--primary-color);
+      color: white;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
 
-        .table thead th {
-            background-color: var(--table-header-bg);
-            border-bottom: 2px solid var(--table-border);
-            color: var(--text-muted);
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
-        }
+    /* Main Content */
+    .content-wrapper {
+      padding: calc(var(--header-height) + 2rem) 2rem 2rem;
+      margin-left: 0;
+    }
 
-        .table tbody tr:hover {
-            background-color: var(--table-row-hover);
-        }
+    /* Header */
+    .main-header {
+      position: fixed;
+      top: 0;
+      right: 0;
+      left: var(--sidebar-width);
+      height: var(--header-height);
+      background: rgba(255, 255, 255, 0.8); /* fallback for both themes */
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1020;
+    }
 
-        /* Theme Toggle */
-        .theme-toggle {
-            position: fixed;
-            bottom: 1rem;
-            left: 1rem;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            z-index: 1040;
-        }
+    /* Sidebar toggle (Hamburger) */
+    .sidebar-toggle {
+      display: none; /* hidden by default; shown only on small screens */
+      cursor: pointer;
+      font-size: 1.25rem;
+      color: var(--text-color);
+    }
 
-        .theme-toggle:hover {
-            transform: scale(1.05);
-        }
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: none;
+      border-radius: 1rem;
+      box-shadow: 0 1px 3px var(--shadow-color);
+      margin-bottom: 1.5rem;
+    }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            body {
-                padding-left: 0;
-            }
+    .card-header {
+      background: transparent;
+      border-bottom: 1px solid var(--border-color);
+      padding: 1.5rem;
+      border-radius: 1rem 1rem 0 0 !important;
+    }
 
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
+    /* Tables */
+    .table {
+      color: var(--text-color);
+      margin: 0;
+    }
 
-            .sidebar.show {
-                transform: translateX(0);
-            }
+    .table thead th {
+      background-color: var(--table-header-bg);
+      border-bottom: 2px solid var(--table-border);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
 
-            .content-wrapper {
-                margin-left: 0;
-            }
+    .table tbody tr:hover {
+      background-color: var(--table-row-hover);
+    }
 
-            .main-header {
-                left: 0;
-            }
+    /* Theme Toggle */
+    .theme-toggle {
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 1040;
+    }
 
-            .theme-toggle {
-                bottom: 1rem;
-                right: 1rem;
-                left: auto;
-            }
-        }
+    .theme-toggle:hover {
+      transform: scale(1.05);
+    }
 
-        /* Scrollbar Styles */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      body {
+        padding-left: 0;
+      }
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.show {
+        transform: translateX(0);
+      }
+      .main-header {
+        left: 0;
+      }
+      .sidebar-toggle {
+        display: block;
+      }
+      .theme-toggle {
+        bottom: 1rem;
+        right: 1rem;
+        left: auto;
+      }
+    }
 
-        ::-webkit-scrollbar-track {
-            background: var(--bg-color);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--text-muted);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-color);
-        }
-    </style>
+    /* Scrollbar Styles */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-color);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-muted);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-color);
+    }
+  </style>
 </head>
 <body>
-    <div class="app-container">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <a href="/" class="sidebar-brand">
-                    <i class="fas fa-microchip"></i>
-                    <span>SensorNet</span>
-                </a>
-            </div>
-            <nav class="sidebar-nav">
-                <ul class="list-unstyled">
-                    <ul class="list-unstyled">
-                    <li><a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"><i class="fas fa-home me-2"></i> Dashboard</a></li>
-                    <li><a href="{{ url_for('sensor_management') }}" class="nav-link {% if request.endpoint == 'sensor_management' %}active{% endif %}"><i class="fas fa-microchip me-2"></i> Manage Sensors</a></li>
-                    <li><a href="{{ url_for('pump_management') }}" class="nav-link {% if request.endpoint == 'pump_management' %}active{% endif %}"><i class="fas fa-tint me-2"></i> Pump Management</a></li>
-                    <li><a href="{{ url_for('discovery') }}" class="nav-link {% if request.endpoint == 'discovery' %}active{% endif %}"><i class="fas fa-search me-2"></i> Discover Sensors</a></li>
-                    <li><a href="/analytics" class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}"><i class="fas fa-chart-line me-2"></i> Analytics</a></li>
-                </ul>
-            </nav>
-        </aside>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="/" class="sidebar-brand">
+          <i class="fas fa-microchip"></i>
+          <span>SensorNet</span>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <ul class="list-unstyled">
+          <li>
+            <a
+              href="{{ url_for('dashboard') }}"
+              class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}"
+            >
+              <i class="fas fa-home me-2"></i> Dashboard
+            </a>
+          </li>
+          <li>
+            <a
+              href="{{ url_for('sensor_management') }}"
+              class="nav-link {% if request.endpoint == 'sensor_management' %}active{% endif %}"
+            >
+              <i class="fas fa-microchip me-2"></i> Manage Sensors
+            </a>
+          </li>
+          <li>
+            <a
+              href="{{ url_for('pump_management') }}"
+              class="nav-link {% if request.endpoint == 'pump_management' %}active{% endif %}"
+            >
+              <i class="fas fa-tint me-2"></i> Pump Management
+            </a>
+          </li>
+          <li>
+            <a
+              href="{{ url_for('discovery') }}"
+              class="nav-link {% if request.endpoint == 'discovery' %}active{% endif %}"
+            >
+              <i class="fas fa-search me-2"></i> Discover Sensors
+            </a>
+          </li>
+          <li>
+            <a
+              href="/analytics"
+              class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}"
+            >
+              <i class="fas fa-chart-line me-2"></i> Analytics
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
 
-        <div class="content-wrapper">
-            <header class="main-header">
-                <h1 class="header-title">{% block header %}{% endblock %}</h1>
-                <div class="header-actions">
-                    {% block header_actions %}{% endblock %}
-                </div>
-            </header>
-            {% block content %}{% endblock %}
+    <!-- Main Content -->
+    <div class="content-wrapper">
+      <header class="main-header">
+        <!-- Sidebar toggle (hamburger) visible on mobile -->
+        <div class="sidebar-toggle d-md-none">
+          <i class="fas fa-bars"></i>
         </div>
 
-        <button class="theme-toggle" aria-label="Toggle theme">
-            <i class="fas fa-moon"></i>
-        </button>
+        <h1 class="header-title">
+          {% block header %}{% endblock %}
+        </h1>
+        <div class="header-actions">
+          {% block header_actions %}{% endblock %}
+        </div>
+      </header>
+
+      {% block content %}{% endblock %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Theme Management
-            const themeToggle = document.querySelector('.theme-toggle');
-            const themeIcon = themeToggle.querySelector('i');
-            
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeIcon(savedTheme);
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" aria-label="Toggle theme">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
 
-            themeToggle.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                
-                document.documentElement.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                updateThemeIcon(newTheme);
-            });
+  <!-- Bootstrap Bundle (including Popper) -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"
+  ></script>
 
-            function updateThemeIcon(theme) {
-                themeIcon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Theme Management
+      const themeToggle = document.querySelector(".theme-toggle");
+      const themeIcon = themeToggle.querySelector("i");
 
-            // Mobile Sidebar Management
-            const sidebar = document.querySelector('.sidebar');
-            
-            document.addEventListener('click', function(event) {
-                if (window.innerWidth <= 768 && 
-                    !event.target.closest('.sidebar') && 
-                    !event.target.closest('.sidebar-toggle') &&
-                    sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                }
-            });
+      const savedTheme = localStorage.getItem("theme") || "light";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      updateThemeIcon(savedTheme);
 
-            window.addEventListener('resize', function () {
-                if (window.innerWidth > 768 && sidebar.classList.contains('show')) {
-                    sidebar.classList.remove('show');
-                }
-            });
+      themeToggle.addEventListener("click", () => {
+        const currentTheme = document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
 
-            // Active Navigation State
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.nav-link');
-            navLinks.forEach(link => {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('active');
-                }
-            });
-        });
-    </script>
-    {% block scripts %}{% endblock %}
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      });
+
+      function updateThemeIcon(theme) {
+        themeIcon.className = theme === "dark" ? "fas fa-sun" : "fas fa-moon";
+      }
+
+      // Mobile Sidebar Management
+      const sidebar = document.querySelector(".sidebar");
+      const sidebarToggle = document.querySelector(".sidebar-toggle");
+
+      // Toggle sidebar on hamburger icon click
+      sidebarToggle.addEventListener("click", function () {
+        sidebar.classList.toggle("show");
+      });
+
+      // Hide sidebar when clicking outside, if it's open on mobile
+      document.addEventListener("click", function (event) {
+        if (
+          window.innerWidth <= 768 &&
+          !event.target.closest(".sidebar") &&
+          !event.target.closest(".sidebar-toggle") &&
+          sidebar.classList.contains("show")
+        ) {
+          sidebar.classList.remove("show");
+        }
+      });
+
+      // Hide sidebar if resizing to desktop
+      window.addEventListener("resize", function () {
+        if (window.innerWidth > 768 && sidebar.classList.contains("show")) {
+          sidebar.classList.remove("show");
+        }
+      });
+
+      // Active Navigation State (for direct refresh)
+      const currentPath = window.location.pathname;
+      const navLinks = document.querySelectorAll(".nav-link");
+      navLinks.forEach((link) => {
+        if (link.getAttribute("href") === currentPath) {
+          link.classList.add("active");
+        }
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>
