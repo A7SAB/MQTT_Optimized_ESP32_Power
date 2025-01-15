@@ -6,7 +6,7 @@ Welcome to the **MQTT Optimized ESP32 Power** project repository! This repositor
 
 ## **Project Overview**
 
-This project demonstrates an MQTT-based system using an ESP32 microcontroller and a DHT11 sensor for measuring humidity and temperature. The goal is to develop an efficient and interactive IoT solution.
+The goal of this project is to develop an efficient and interactive IoT solution.
 
 ### **Features**
 - Low-power consumption with optimized operations.
