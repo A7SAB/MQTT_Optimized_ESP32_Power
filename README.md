@@ -81,6 +81,7 @@ Password: admin123
 ## **Future Enhancements**
 Here are some features we're working on:
 - **Notification Manger**: Adding the ability to manage the notfications. 
-- **WIFI Manager**: to make the connectivity more user friendly. 
+- **WIFI Manager**: to make the connectivity more user friendly.
+- **Adding battery reading capabilities** : adding the ability for the user to check on current capacity of the sensor battery. 
 ---
 
